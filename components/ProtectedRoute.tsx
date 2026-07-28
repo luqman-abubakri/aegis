@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { supabase } from "@/lib/supabase";
 import { LoadingSpinner } from "@/components/LoadingSpinner";
 
 interface ProtectedRouteProps {
@@ -13,13 +14,19 @@ export function ProtectedRoute({ children }: ProtectedRouteProps) {
   const router = useRouter();
 
   useEffect(() => {
-    const token = localStorage.getItem("aegis_token");
+    const checkAuth = async () => {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
 
-    if (!token) {
-      router.replace("/sign-in");
-    } else {
-      setAuthorized(true);
-    }
+      if (!session) {
+        router.replace("/sign-in");
+      } else {
+        setAuthorized(true);
+      }
+    };
+
+    checkAuth();
   }, [router]);
 
   if (!authorized) {

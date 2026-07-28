@@ -2,7 +2,7 @@
 
 import { motion } from "framer-motion";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
-import { useAuth } from "@/hooks/useAuth";
+import { useAuth } from "@/contexts/AuthProvider";
 import { LoadingSpinner } from "@/components/LoadingSpinner";
 import {
   BarChart3,
@@ -62,7 +62,7 @@ export default function DashboardPage() {
             <h1 className="text-4xl font-black md:text-5xl">
               Welcome back,{" "}
               <span className="bg-gradient-to-r from-blue-400 to-cyan-400 bg-clip-text text-transparent">
-                {user?.name || "Aegis User"}
+                {user?.user_metadata?.full_name || user?.email || "Aegis User"}
               </span>
             </h1>
             <p className="mt-3 text-lg text-slate-400">

@@ -1,46 +1,38 @@
-# Phase 1A - Authentication Foundation
+# AEGIS Backend Migration - MongoDB → Supabase
 
-## Completed Steps
+## Phase 1: Install Dependencies
+- [x] Install @supabase/supabase-js and @supabase/ssr
+- [ ] Remove mongoose, graphql, jsonwebtoken, bcryptjs, @apollo/client, @apollo/server, @as-integrations/next (after migration)
 
-- [x] 1. Create `models/User.ts` - Mongoose User model with bcrypt hashing
-- [x] 2. Create `lib/jwt.ts` - JWT token generation and verification
-- [x] 3. Create `utils/password.ts` - Password validation helpers
-- [x] 4. Create `types/index.ts` - TypeScript type definitions
-- [x] 5. Create `graphql/schema.ts` - GraphQL type definitions (register, login, currentUser)
-- [x] 6. Create `graphql/resolver.ts` - GraphQL resolvers
-- [x] 7. Create `graphql/context.ts` - GraphQL context with JWT verification
-- [x] 8. Update `graphql/apollo-client.ts` - Apollo Client setup
-- [x] 9. Create `app/api/graphql/route.ts` - GraphQL API route handler
-- [x] 10. Update `app/layout.tsx` - Add Apollo Provider wrapper
-- [x] 11. Create `middleware.ts` - Next.js middleware for protected routes
-- [x] 12. Update `app/sign-up/page.tsx` - Wire to GraphQL mutation
-- [x] 13. Update `app/sign-in/page.tsx` - Wire to GraphQL mutation
-- [ ] 14. Build check and verification
+## Phase 2: Create Supabase Structure
+- [ ] Create `lib/supabase.ts` - Supabase client
+- [ ] Create `services/auth.ts` - Auth service functions
+- [ ] Create `contexts/AuthProvider.tsx` - Auth context provider
+- [ ] Create `lib/schema.sql` - Database table schema
 
-## Files Created:
-- `models/User.ts`
-- `lib/jwt.ts`
-- `utils/password.ts`
-- `types/index.ts`
-- `graphql/schema.ts`
-- `graphql/resolver.ts`
-- `graphql/contex.ts`
-- `graphql/apollo-client.ts`
-- `app/api/graphql/route.ts`
-- `middleware.ts`
-- `hooks/useAuth.ts`
-- `components/ProtectedRoute.tsx`
-- `components/LoadingSpinner.tsx`
-- `components/EmptyState.tsx`
+## Phase 3: Update Auth Pages (UI preserved)
+- [ ] Update `app/layout.tsx` - Replace ApolloWrapper with AuthProvider
+- [ ] Update `app/sign-in/page.tsx` - Use Supabase auth
+- [ ] Update `app/sign-up/page.tsx` - Use Supabase auth
+- [ ] Update `components/Navbar.tsx` - Show auth state
+- [ ] Update `components/ProtectedRoute.tsx` - Use Supabase session
 
-## Files Modified (Not Redesigned):
-- `app/layout.tsx` - Added ApolloWrapper import and wrapping
-- `app/sign-in/page.tsx` - Wired to GraphQL (preserved UI)
-- `app/sign-up/page.tsx` - Wired to GraphQL (preserved UI)
+## Phase 4: Remove Old Backend
+- [ ] Delete `models/` folder
+- [ ] Delete `graphql/` folder
+- [ ] Delete `lib/dbConnect.ts`, `lib/jwt.ts`
+- [ ] Delete `utils/password.ts`
+- [ ] Delete `app/api/graphql/route.ts`, `app/api/test-db/route.ts`
+- [ ] Delete `components/ApolloWrapper.tsx`
+- [ ] Delete `hooks/useAuth.ts`
+- [ ] Update `types/index.ts`
 
-## Required .env Variables:
-- `MONGODB_URI` - MongoDB Atlas connection string
-- `JWT_SECRET` - Secret key for JWT token signing
+## Phase 5: Dashboard & Remaining Pages
+- [ ] Update `app/dashboard/page.tsx` - Replace MongoDB with Supabase
+- [ ] Update `middleware.ts` - Remove JWT logic
 
-## Packages Installed:
-- `@types/jsonwebtoken` (dev dependency)
+## Phase 6: Cleanup & Verify
+- [ ] Remove unused packages from package.json
+- [ ] Run `npm install`
+- [ ] Run `npm run build` - Zero TypeScript errors
+

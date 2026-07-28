@@ -12,7 +12,8 @@ import {
   EyeOff,
 } from "lucide-react";
 import { useState } from "react";
-import { useAuth } from "@/hooks/useAuth";
+import { useRouter } from "next/navigation";
+import { signUp } from "@/services/auth";
 import { LoadingSpinner } from "@/components/LoadingSpinner";
 
 export default function SignUpPage() {
@@ -21,7 +22,8 @@ export default function SignUpPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [formError, setFormError] = useState("");
-  const { register, loading, error } = useAuth();
+  const [loading, setLoading] = useState(false);
+  const router = useRouter();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -37,9 +39,14 @@ export default function SignUpPage() {
       return;
     }
 
-    const result = await register(name, email, password);
+    setLoading(true);
+    const result = await signUp(name, email, password);
+    setLoading(false);
+
     if (!result.success) {
       setFormError(result.message || "Registration failed");
+    } else {
+      router.push("/dashboard");
     }
   };
 
@@ -83,13 +90,13 @@ export default function SignUpPage() {
         </div>
 
         {/* Error Message */}
-        {(formError || error) && (
+        {formError && (
           <motion.div
             initial={{ opacity: 0, y: -10 }}
             animate={{ opacity: 1, y: 0 }}
             className="mb-6 rounded-xl border border-red-500/20 bg-red-500/10 px-5 py-3 text-sm text-red-400"
           >
-            {formError || error}
+            {formError}
           </motion.div>
         )}
 
