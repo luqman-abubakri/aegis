@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Menu, X, ShieldCheck, LogOut } from "lucide-react";
+import { Menu, X, ShieldCheck, LogOut, User as UserIcon } from "lucide-react";
 import { useState } from "react";
 import { useAuth } from "@/contexts/AuthProvider";
 import { useRouter } from "next/navigation";
@@ -50,6 +50,14 @@ const Navbar = () => {
                 className="rounded-xl border border-slate-700 px-5 py-2 text-sm font-medium text-slate-300 transition-all duration-300 hover:border-blue-500 hover:bg-slate-900 hover:text-blue-400"
               >
                 Dashboard
+              </Link>
+
+              <Link
+                href="/profile"
+                className="flex items-center gap-2 rounded-xl border border-slate-700 px-5 py-2 text-sm font-medium text-slate-300 transition-all duration-300 hover:border-blue-500 hover:bg-slate-900 hover:text-blue-400"
+              >
+                <UserIcon size={16} />
+                Profile
               </Link>
 
               <button
@@ -106,6 +114,15 @@ const Navbar = () => {
                   className="w-full rounded-xl border border-slate-700 py-3 text-center font-medium text-slate-300 transition-all duration-300 hover:border-blue-500 hover:bg-slate-900 hover:text-blue-400"
                 >
                   Dashboard
+                </Link>
+
+                <Link
+                  href="/profile"
+                  onClick={() => setOpen(false)}
+                  className="flex w-full items-center justify-center gap-2 rounded-xl border border-slate-700 py-3 font-medium text-slate-300 transition-all duration-300 hover:border-blue-500 hover:bg-slate-900 hover:text-blue-400"
+                >
+                  <UserIcon size={16} />
+                  Profile
                 </Link>
 
                 <button

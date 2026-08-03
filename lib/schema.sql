@@ -1,7 +1,7 @@
 -- AEGIS Supabase Database Schema
 -- Run this in the Supabase SQL Editor to set up tables
 
--- 1. Profiles table (auto-created on user signup)
+-- 1. Profiles table (auto-created on user signup via database trigger)
 CREATE TABLE IF NOT EXISTS public.profiles (
   id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
   email TEXT NOT NULL,
@@ -19,6 +19,34 @@ CREATE POLICY "Users can view own profile"
 CREATE POLICY "Users can update own profile"
   ON public.profiles FOR UPDATE
   USING (auth.uid() = id);
+
+-- Auto-create profile on user signup (SECURITY DEFINER bypasses RLS)
+CREATE OR REPLACE FUNCTION public.handle_new_user()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = ''
+AS $$
+BEGIN
+  INSERT INTO public.profiles (id, email, full_name, created_at, updated_at)
+  VALUES (
+    NEW.id,
+    COALESCE(NEW.email, ''),
+    COALESCE(NEW.raw_user_meta_data ->> 'full_name', ''),
+    NOW(),
+    NOW()
+  );
+  RETURN NEW;
+END;
+$$;
+
+-- Drop trigger first to make this idempotent
+DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
+
+CREATE TRIGGER on_auth_user_created
+  AFTER INSERT ON auth.users
+  FOR EACH ROW
+  EXECUTE FUNCTION public.handle_new_user();
 
 -- 2. Interviews table
 CREATE TABLE IF NOT EXISTS public.interviews (

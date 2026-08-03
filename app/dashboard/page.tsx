@@ -1,8 +1,10 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { useAuth } from "@/contexts/AuthProvider";
+import { supabase } from "@/lib/supabase";
 import { LoadingSpinner } from "@/components/LoadingSpinner";
 import {
   BarChart3,
@@ -16,10 +18,104 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 
-export default function DashboardPage() {
-  const { user, loading } = useAuth();
+interface DashboardInterview {
+  id: string;
+  role: string;
+  difficulty: string;
+  interview_type: string;
+  status: string;
+  score: number | null;
+  feedback: { summary?: string } | null;
+  duration_seconds: number | null;
+  created_at: string;
+  completed_at: string | null;
+}
 
-  if (loading) {
+interface DashboardFeedback {
+  id: string;
+  interview_id: string;
+  overall_score: number | null;
+  summary: string | null;
+  created_at: string;
+}
+
+function calculateStreak(dates: string[]): number {
+  if (dates.length === 0) return 0;
+
+  const uniqueDays = new Set(
+    dates.map((d) => new Date(d).toDateString())
+  );
+  const sortedDays = Array.from(uniqueDays)
+    .map((d) => new Date(d).getTime())
+    .sort((a, b) => b - a);
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const todayMs = today.getTime();
+
+  // If the most recent practice wasn't today or yesterday, streak is 0
+  if (sortedDays[0] < todayMs - 86400000) {
+    return 0;
+  }
+
+  let streak = 0;
+  let expectedDay = sortedDays[0] === todayMs ? todayMs : todayMs - 86400000;
+
+  for (const dayMs of sortedDays) {
+    if (dayMs === expectedDay) {
+      streak++;
+      expectedDay -= 86400000;
+    } else if (dayMs < expectedDay) {
+      break;
+    }
+  }
+
+  return streak;
+}
+
+export default function DashboardPage() {
+  const { user, loading: authLoading } = useAuth();
+  const [interviews, setInterviews] = useState<DashboardInterview[]>([]);
+  const [feedbackRecords, setFeedbackRecords] = useState<DashboardFeedback[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    async function loadDashboardData() {
+      if (!user) return;
+      try {
+        const [interviewsRes, feedbackRes] = await Promise.all([
+          supabase
+            .from("interviews")
+            .select("*")
+            .eq("user_id", user.id)
+            .eq("status", "completed")
+            .order("created_at", { ascending: false }),
+          supabase
+            .from("feedback")
+            .select("id, interview_id, overall_score, summary, created_at")
+            .eq("user_id", user.id)
+            .order("created_at", { ascending: false }),
+        ]);
+
+        if (!interviewsRes.error && interviewsRes.data) {
+          setInterviews(interviewsRes.data as DashboardInterview[]);
+        }
+        if (!feedbackRes.error && feedbackRes.data) {
+          setFeedbackRecords(feedbackRes.data as DashboardFeedback[]);
+        }
+      } catch (err) {
+        console.error("Dashboard fetch error:", err);
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    if (user) {
+      loadDashboardData();
+    }
+  }, [user, authLoading]);
+
+  if (authLoading || loading) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-[#020817]">
         <LoadingSpinner size="lg" text="Loading dashboard..." />
@@ -27,11 +123,64 @@ export default function DashboardPage() {
     );
   }
 
+  const completedCount = interviews.length;
+
+  // Average score from feedback table
+  const scoredFeedback = feedbackRecords.filter(
+    (f) => typeof f.overall_score === "number"
+  );
+  const avgScore =
+    scoredFeedback.length > 0
+      ? `${Math.round(
+          scoredFeedback.reduce((a, b) => a + (b.overall_score || 0), 0) /
+            scoredFeedback.length
+        )}%`
+      : "—";
+
+  // Total practice time from interview durations (seconds -> minutes)
+  const totalSeconds = interviews.reduce(
+    (sum, i) => sum + (i.duration_seconds || 0),
+    0
+  );
+  const totalTimeMinutes = Math.round(totalSeconds / 60);
+  const totalTimeDisplay =
+    totalTimeMinutes >= 60
+      ? `${Math.floor(totalTimeMinutes / 60)}h ${totalTimeMinutes % 60}m`
+      : `${totalTimeMinutes} min`;
+
+  // Streak: consecutive practice days
+  const streakCount = calculateStreak(
+    interviews.map((i) => i.created_at)
+  );
+  const streakDisplay = `${streakCount} ${streakCount === 1 ? "day" : "days"}`;
+
+  const latestInterview = interviews.find((i) => i.feedback);
+
   const stats = [
-    { icon: BarChart3, label: "Interviews Completed", value: "0", color: "from-blue-500 to-cyan-500" },
-    { icon: Target, label: "Average Score", value: "—", color: "from-violet-500 to-fuchsia-500" },
-    { icon: Clock, label: "Total Practice Time", value: "0 min", color: "from-emerald-500 to-green-500" },
-    { icon: Award, label: "Streak", value: "0 days", color: "from-orange-500 to-red-500" },
+    {
+      icon: BarChart3,
+      label: "Interviews Completed",
+      value: String(completedCount),
+      color: "from-blue-500 to-cyan-500",
+    },
+    {
+      icon: Target,
+      label: "Average Score",
+      value: avgScore,
+      color: "from-violet-500 to-fuchsia-500",
+    },
+    {
+      icon: Clock,
+      label: "Total Practice Time",
+      value: totalTimeDisplay,
+      color: "from-emerald-500 to-green-500",
+    },
+    {
+      icon: Award,
+      label: "Streak",
+      value: streakDisplay,
+      color: "from-orange-500 to-red-500",
+    },
   ];
 
   return (
@@ -82,7 +231,9 @@ export default function DashboardPage() {
                   transition={{ delay: index * 0.1 }}
                   className="rounded-3xl border border-slate-800 bg-slate-900/60 p-6 backdrop-blur-xl transition-all duration-300 hover:border-blue-500/40"
                 >
-                  <div className={`mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br ${stat.color}`}>
+                  <div
+                    className={`mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br ${stat.color}`}
+                  >
                     <Icon size={22} />
                   </div>
                   <p className="text-3xl font-bold">{stat.value}</p>
@@ -130,28 +281,145 @@ export default function DashboardPage() {
             </div>
           </motion.div>
 
-          {/* Recent Activity */}
+          {/* Recent Interviews */}
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.4 }}
+            className="mb-12 rounded-3xl border border-slate-800 bg-slate-900/60 p-8 backdrop-blur-xl"
+          >
+            <h2 className="mb-6 text-2xl font-bold">Recent Interviews</h2>
+
+            {interviews.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-12 text-center">
+                <BarChart3 size={48} className="mb-4 text-slate-600" />
+                <p className="text-lg text-slate-400">No interviews completed yet</p>
+                <p className="mt-2 text-sm text-slate-500">
+                  Complete your first interview to see it here
+                </p>
+                <Link
+                  href="/interview"
+                  className="mt-6 inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-blue-600 to-cyan-500 px-6 py-3 font-semibold transition-all duration-300 hover:scale-105"
+                >
+                  Start First Interview
+                  <ArrowRight size={18} />
+                </Link>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {interviews.slice(0, 5).map((item) => {
+                  const durationMin = item.duration_seconds
+                    ? Math.round(item.duration_seconds / 60)
+                    : 0;
+                  const durationDisplay =
+                    durationMin >= 60
+                      ? `${Math.floor(durationMin / 60)}h ${durationMin % 60}m`
+                      : `${durationMin} min`;
+                  return (
+                    <div
+                      key={item.id}
+                      className="flex flex-col justify-between gap-4 rounded-2xl border border-slate-800 bg-slate-800/40 p-5 sm:flex-row sm:items-center"
+                    >
+                      <div className="flex-1">
+                        <div className="flex flex-wrap items-center gap-3">
+                          <span className="text-lg font-semibold text-white">{item.role}</span>
+                          <span className="rounded-full bg-slate-700/60 px-3 py-1 text-xs text-slate-300 capitalize">
+                            {item.interview_type}
+                          </span>
+                          <span className="rounded-full bg-blue-500/10 px-3 py-1 text-xs text-blue-400 capitalize">
+                            {item.difficulty}
+                          </span>
+                        </div>
+                        <div className="mt-2 flex flex-wrap items-center gap-4 text-xs text-slate-400">
+                          <span>
+                            {new Date(item.created_at).toLocaleDateString(undefined, {
+                              year: "numeric",
+                              month: "short",
+                              day: "numeric",
+                            })}
+                          </span>
+                          <span className="flex items-center gap-1">
+                            <Clock size={12} />
+                            {durationDisplay}
+                          </span>
+                        </div>
+                      </div>
+                      {typeof item.score === "number" && (
+                        <div
+                          className={`rounded-xl px-4 py-2 text-sm font-bold ${
+                            item.score >= 80
+                              ? "border border-green-500/30 bg-green-500/10 text-green-400"
+                              : item.score >= 60
+                              ? "border border-yellow-500/30 bg-yellow-500/10 text-yellow-400"
+                              : "border border-red-500/30 bg-red-500/10 text-red-400"
+                          }`}
+                        >
+                          {item.score}/100
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </motion.div>
+
+          {/* Latest AI Feedback */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.5 }}
             className="rounded-3xl border border-slate-800 bg-slate-900/60 p-8 backdrop-blur-xl"
           >
             <h2 className="mb-6 text-2xl font-bold">Latest AI Feedback</h2>
-            <div className="flex flex-col items-center justify-center py-12 text-center">
-              <Award size={48} className="mb-4 text-slate-600" />
-              <p className="text-lg text-slate-400">No interviews completed yet</p>
-              <p className="mt-2 text-sm text-slate-500">
-                Complete your first interview to see AI feedback here
-              </p>
-              <Link
-                href="/interview"
-                className="mt-6 inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-blue-600 to-cyan-500 px-6 py-3 font-semibold transition-all duration-300 hover:scale-105"
-              >
-                Start First Interview
-                <ArrowRight size={18} />
-              </Link>
-            </div>
+
+            {latestInterview ? (
+              <div className="space-y-4">
+                <div className="flex flex-col gap-4 rounded-2xl border border-slate-800 bg-slate-800/40 p-6 sm:flex-row sm:items-center sm:justify-between">
+                  <div>
+                    <div className="flex items-center gap-3">
+                      <span className="text-xl font-bold text-white">
+                        {latestInterview.role}
+                      </span>
+                      <span className="rounded-full bg-blue-500/10 px-3 py-1 text-xs font-medium text-blue-400 capitalize">
+                        {latestInterview.difficulty}
+                      </span>
+                    </div>
+                    {latestInterview.feedback?.summary && (
+                      <p className="mt-3 text-sm leading-relaxed text-slate-300">
+                        {latestInterview.feedback.summary}
+                      </p>
+                    )}
+                    <p className="mt-2 text-xs text-slate-500">
+                      Completed on {new Date(latestInterview.created_at).toLocaleDateString()}
+                    </p>
+                  </div>
+                  {typeof latestInterview.score === "number" && (
+                    <div className="flex flex-col items-center justify-center rounded-2xl border border-blue-500/30 bg-blue-500/10 px-6 py-4">
+                      <span className="text-3xl font-black text-blue-400">
+                        {latestInterview.score}
+                      </span>
+                      <span className="text-xs text-slate-400">Overall Score</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+            ) : (
+              <div className="flex flex-col items-center justify-center py-12 text-center">
+                <Award size={48} className="mb-4 text-slate-600" />
+                <p className="text-lg text-slate-400">No interviews completed yet</p>
+                <p className="mt-2 text-sm text-slate-500">
+                  Complete your first interview to see AI feedback here
+                </p>
+                <Link
+                  href="/interview"
+                  className="mt-6 inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-blue-600 to-cyan-500 px-6 py-3 font-semibold transition-all duration-300 hover:scale-105"
+                >
+                  Start First Interview
+                  <ArrowRight size={18} />
+                </Link>
+              </div>
+            )}
           </motion.div>
         </div>
       </main>

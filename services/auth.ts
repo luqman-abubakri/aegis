@@ -16,6 +16,8 @@ export async function signUp(
   password: string
 ): Promise<AuthResult> {
   try {
+    console.log("✓ Auth signup initiated for:", email);
+
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
@@ -27,6 +29,7 @@ export async function signUp(
     });
 
     if (error) {
+      console.error("❌ Auth signup failed:", error);
       return {
         success: false,
         message: error.message,
@@ -34,25 +37,16 @@ export async function signUp(
     }
 
     if (!data.user) {
+      console.error("❌ Auth signup succeeded but no user returned");
       return {
         success: false,
         message: "Failed to create account. Please try again.",
       };
     }
 
-    // Create a profile row for the new user
-    const { error: profileError } = await supabase.from("profiles").insert({
-      id: data.user.id,
-      email: email.toLowerCase(),
-      full_name: name.trim(),
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    });
-
-    if (profileError) {
-      // Log but don't fail - the user is created, profile can be retried
-      console.error("Profile creation error:", profileError.message);
-    }
+    console.log("✓ Auth signup succeeded");
+    console.log("✓ User ID received:", data.user.id);
+    console.log("✓ Profile will be created automatically by database trigger");
 
     return {
       success: true,
@@ -65,6 +59,7 @@ export async function signUp(
       },
     };
   } catch (err: unknown) {
+    console.error("❌ Unexpected signup error:", err);
     const message =
       err instanceof Error ? err.message : "An unexpected error occurred";
     return {

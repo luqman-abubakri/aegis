@@ -10,6 +10,8 @@ import {
   ShieldCheck,
   ArrowRight,
 } from "lucide-react";
+import Link from "next/link";
+import { useAuth } from "@/contexts/AuthProvider";
 
 const features = [
   {
@@ -57,6 +59,9 @@ const features = [
 ];
 
 export default function FeaturesPage() {
+  const { user } = useAuth();
+  const ctaHref = user ? "/interview" : "/sign-up";
+
   return (
     <main className="min-h-screen overflow-x-hidden bg-[#020817] text-white">
       {/* Hero */}
@@ -157,9 +162,13 @@ export default function FeaturesPage() {
             technical interview with confidence.
           </p>
 
-          <button className="mt-8 w-full rounded-2xl bg-blue-600 px-8 py-4 font-semibold transition-all duration-300 hover:scale-105 hover:bg-blue-500 sm:mt-10 sm:w-auto sm:px-10">
-            Start Free Interview
-          </button>
+          <Link
+            href={ctaHref}
+            className="mt-8 inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-blue-600 px-8 py-4 font-semibold transition-all duration-300 hover:scale-105 hover:bg-blue-500 sm:mt-10 sm:w-auto sm:px-10"
+          >
+            {user ? "Start Practice Interview" : "Start Free Interview"}
+            <ArrowRight size={18} />
+          </Link>
         </div>
       </section>
     </main>
