@@ -42,29 +42,46 @@ interface DashboardFeedback {
 function calculateStreak(dates: string[]): number {
   if (dates.length === 0) return 0;
 
-  const uniqueDays = new Set(
-    dates.map((d) => new Date(d).toDateString())
+  // Convert each date to a "day key" (YYYY-MM-DD) in local time.
+  // Using explicit date construction avoids the non-standard
+  // toDateString() -> new Date(string) round-trip which can behave
+  // differently across JS engines.
+  const dayKeys = new Set(
+    dates.map((d) => {
+      const date = new Date(d);
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, "0");
+      const day = String(date.getDate()).padStart(2, "0");
+      return `${year}-${month}-${day}`;
+    })
   );
-  const sortedDays = Array.from(uniqueDays)
-    .map((d) => new Date(d).getTime())
+
+  // Convert day keys to timestamps (midnight local time) and sort descending
+  const sortedDays = Array.from(dayKeys)
+    .map((key) => {
+      const [y, m, d] = key.split("-").map(Number);
+      return new Date(y, m - 1, d).getTime();
+    })
     .sort((a, b) => b - a);
 
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   const todayMs = today.getTime();
+  const oneDayMs = 86400000;
 
   // If the most recent practice wasn't today or yesterday, streak is 0
-  if (sortedDays[0] < todayMs - 86400000) {
+  if (sortedDays[0] < todayMs - oneDayMs) {
     return 0;
   }
 
   let streak = 0;
-  let expectedDay = sortedDays[0] === todayMs ? todayMs : todayMs - 86400000;
+  // Start from today if the most recent practice is today, otherwise yesterday
+  let expectedDay = sortedDays[0] >= todayMs ? todayMs : todayMs - oneDayMs;
 
   for (const dayMs of sortedDays) {
     if (dayMs === expectedDay) {
       streak++;
-      expectedDay -= 86400000;
+      expectedDay -= oneDayMs;
     } else if (dayMs < expectedDay) {
       break;
     }
@@ -82,6 +99,9 @@ export default function DashboardPage() {
   useEffect(() => {
     async function loadDashboardData() {
       if (!user) return;
+
+      console.log("[Dashboard] Loading data for user:", user.id);
+
       try {
         const [interviewsRes, feedbackRes] = await Promise.all([
           supabase
@@ -97,14 +117,48 @@ export default function DashboardPage() {
             .order("created_at", { ascending: false }),
         ]);
 
-        if (!interviewsRes.error && interviewsRes.data) {
+        console.log("[Dashboard] Interviews query response:", {
+          userId: user.id,
+          filter: { user_id: user.id, status: "completed" },
+          count: interviewsRes.data?.length ?? 0,
+          error: interviewsRes.error
+            ? { message: interviewsRes.error.message, code: interviewsRes.error.code }
+            : null,
+        });
+
+        console.log("[Dashboard] Feedback query response:", {
+          userId: user.id,
+          filter: { user_id: user.id },
+          count: feedbackRes.data?.length ?? 0,
+          error: feedbackRes.error
+            ? { message: feedbackRes.error.message, code: feedbackRes.error.code }
+            : null,
+        });
+
+        if (interviewsRes.error) {
+          console.error("[Dashboard] Interviews query failed:", {
+            message: interviewsRes.error.message,
+            code: interviewsRes.error.code,
+            details: interviewsRes.error.details,
+          });
+        } else if (interviewsRes.data) {
           setInterviews(interviewsRes.data as DashboardInterview[]);
         }
-        if (!feedbackRes.error && feedbackRes.data) {
+
+        if (feedbackRes.error) {
+          console.error("[Dashboard] Feedback query failed:", {
+            message: feedbackRes.error.message,
+            code: feedbackRes.error.code,
+            details: feedbackRes.error.details,
+          });
+        } else if (feedbackRes.data) {
           setFeedbackRecords(feedbackRes.data as DashboardFeedback[]);
         }
       } catch (err) {
-        console.error("Dashboard fetch error:", err);
+        console.error("[Dashboard] Unexpected fetch error:", {
+          userId: user.id,
+          error: err instanceof Error ? err.message : String(err),
+        });
       } finally {
         setLoading(false);
       }

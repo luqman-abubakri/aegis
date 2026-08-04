@@ -5,6 +5,8 @@ import type {
   Difficulty,
   InterviewFeedback,
   InterviewType,
+  ResumeAnalysis,
+  ResumeGeneratedInterview,
 } from "@/types";
 
 const groq = new Groq({
@@ -150,7 +152,7 @@ function readScore(value: unknown): number {
   return Math.max(0, Math.min(100, Math.round(score)));
 }
 
-async function groqCompletion(prompt: string): Promise<string> {
+async function groqCompletion(prompt: string, maxTokens = 1024): Promise<string> {
   if (!process.env.GROQ_API_KEY) {
     throw new Error("GROQ_API_KEY is not configured on the server");
   }
@@ -162,7 +164,7 @@ async function groqCompletion(prompt: string): Promise<string> {
       { role: "user", content: prompt },
     ],
     temperature: 0.7,
-    max_tokens: 1024,
+    max_tokens: maxTokens,
   });
 
   const text = completion.choices?.[0]?.message?.content?.trim();
@@ -209,7 +211,12 @@ export async function generateInterviewQuestion(
     return question;
   } catch (error: unknown) {
     const detail = getErrorDetail(error);
-    console.error("Groq question generation failed:", detail);
+    console.error("Groq question generation failed:", {
+      detail,
+      error: error instanceof Error ? error.message : String(error),
+      stack: error instanceof Error ? error.stack : undefined,
+      raw: error,
+    });
     throw new Error(`Groq Question Generation Error: ${detail}`);
   }
 }
@@ -238,7 +245,12 @@ export async function evaluateAnswer(params: {
     };
   } catch (error: unknown) {
     const detail = getErrorDetail(error);
-    console.error("Groq answer evaluation failed:", detail);
+    console.error("Groq answer evaluation failed:", {
+      detail,
+      error: error instanceof Error ? error.message : String(error),
+      stack: error instanceof Error ? error.stack : undefined,
+      raw: error,
+    });
     throw new Error(`Groq Evaluation Error: ${detail}`);
   }
 }
@@ -265,7 +277,146 @@ export async function generateFinalFeedback(params: {
     };
   } catch (error: unknown) {
     const detail = getErrorDetail(error);
-    console.error("Groq final feedback generation failed:", detail);
+    console.error("Groq final feedback generation failed:", {
+      detail,
+      error: error instanceof Error ? error.message : String(error),
+      stack: error instanceof Error ? error.stack : undefined,
+      raw: error,
+    });
     throw new Error(`Groq Feedback Generation Error: ${detail}`);
+  }
+}
+
+function buildResumeAnalysisPrompt(params: {
+  resumeText: string;
+  fileName: string;
+}): string {
+  return `Analyze the following resume content and return ONLY valid JSON.
+
+File name: ${params.fileName}
+Resume text:
+${params.resumeText}
+
+Return a JSON object with this exact structure:
+{
+  "overallScore": 0,
+  "atsScore": 0,
+  "interviewReadiness": 0,
+  "technicalSkills": ["skill"],
+  "softSkills": ["skill"],
+  "missingSkills": ["skill"],
+  "strengths": ["strength"],
+  "weaknesses": ["weakness"],
+  "grammarIssues": ["issue"],
+  "formattingIssues": ["issue"],
+  "recommendations": ["recommendation"],
+  "suggestedProjects": ["project"],
+  "suggestedCertifications": ["certification"],
+  "suggestedTechnologies": ["tech"]
+}
+
+Use realistic values based on the resume content. Keep arrays concise and relevant.`;
+}
+
+function buildResumeInterviewPrompt(params: {
+  analysis: ResumeAnalysis;
+  resumeText: string;
+}): string {
+  return `Using the candidate resume analysis below, generate an interview plan with 8 questions. Return ONLY valid JSON.
+
+Analysis:
+${JSON.stringify(params.analysis)}
+
+Resume text:
+${params.resumeText}
+
+Return JSON in this structure:
+{
+  "title": "Interview Title",
+  "description": "Brief description",
+  "questions": [
+    {
+      "id": "q1",
+      "type": "technical",
+      "question": "Question text",
+      "focus": "focus area"
+    }
+  ]
+}`;
+}
+
+export async function analyzeResumeText(params: {
+  resumeText: string;
+  fileName: string;
+}): Promise<ResumeAnalysis> {
+  try {
+    const text = await groqCompletion(buildResumeAnalysisPrompt(params), 4096);
+    const parsed = parseJSON(text);
+
+    return {
+      overallScore: readScore(parsed.overallScore),
+      atsScore: readScore(parsed.atsScore),
+      interviewReadiness: readScore(parsed.interviewReadiness),
+      technicalSkills: readStringArray(parsed.technicalSkills),
+      softSkills: readStringArray(parsed.softSkills),
+      missingSkills: readStringArray(parsed.missingSkills),
+      strengths: readStringArray(parsed.strengths),
+      weaknesses: readStringArray(parsed.weaknesses),
+      grammarIssues: readStringArray(parsed.grammarIssues),
+      formattingIssues: readStringArray(parsed.formattingIssues),
+      recommendations: readStringArray(parsed.recommendations),
+      suggestedProjects: readStringArray(parsed.suggestedProjects),
+      suggestedCertifications: readStringArray(parsed.suggestedCertifications),
+      suggestedTechnologies: readStringArray(parsed.suggestedTechnologies),
+    };
+  } catch (error) {
+    console.error("========== RAW ERROR ==========");
+    console.error(error);
+    if (error instanceof Error) {
+      console.error("Message:", error.message);
+      console.error("Stack:", error.stack);
+      console.error("Cause:", error.cause);
+    }
+    console.dir(error, { depth: null });
+    console.error("===============================");
+    throw error;
+  }
+}
+
+export async function generateResumeInterviewQuestions(params: {
+  analysis: ResumeAnalysis;
+  resumeText: string;
+}): Promise<ResumeGeneratedInterview> {
+  try {
+    const text = await groqCompletion(buildResumeInterviewPrompt(params), 4096);
+    const parsed = parseJSON(text);
+
+    return {
+      title: typeof parsed.title === "string" ? parsed.title : "Resume-Based Interview",
+      description:
+        typeof parsed.description === "string"
+          ? parsed.description
+          : "Interview questions tailored to your resume.",
+      questions: Array.isArray(parsed.questions)
+        ? parsed.questions.filter(
+            (item): item is ResumeGeneratedInterview["questions"][number] =>
+              isRecord(item) &&
+              typeof item.question === "string" &&
+              typeof item.type === "string" &&
+              typeof item.focus === "string"
+          )
+        : [],
+    };
+  } catch (error) {
+    console.error("========== RAW ERROR ==========");
+    console.error(error);
+    if (error instanceof Error) {
+      console.error("Message:", error.message);
+      console.error("Stack:", error.stack);
+      console.error("Cause:", error.cause);
+    }
+    console.dir(error, { depth: null });
+    console.error("===============================");
+    throw error;
   }
 }

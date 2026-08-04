@@ -36,6 +36,9 @@ export default function ProfilePage() {
   useEffect(() => {
     async function fetchUserData() {
       if (!user) return;
+
+      console.log("[Profile] Loading data for user:", user.id);
+
       try {
         const [interviewsRes, feedbackRes] = await Promise.all([
           supabase
@@ -51,14 +54,48 @@ export default function ProfilePage() {
             .order("created_at", { ascending: false }),
         ]);
 
-        if (!interviewsRes.error && interviewsRes.data) {
+        console.log("[Profile] Interviews query response:", {
+          userId: user.id,
+          filter: { user_id: user.id, status: "completed" },
+          count: interviewsRes.data?.length ?? 0,
+          error: interviewsRes.error
+            ? { message: interviewsRes.error.message, code: interviewsRes.error.code }
+            : null,
+        });
+
+        console.log("[Profile] Feedback query response:", {
+          userId: user.id,
+          filter: { user_id: user.id },
+          count: feedbackRes.data?.length ?? 0,
+          error: feedbackRes.error
+            ? { message: feedbackRes.error.message, code: feedbackRes.error.code }
+            : null,
+        });
+
+        if (interviewsRes.error) {
+          console.error("[Profile] Interviews query failed:", {
+            message: interviewsRes.error.message,
+            code: interviewsRes.error.code,
+            details: interviewsRes.error.details,
+          });
+        } else if (interviewsRes.data) {
           setInterviews(interviewsRes.data as InterviewRecord[]);
         }
-        if (!feedbackRes.error && feedbackRes.data) {
+
+        if (feedbackRes.error) {
+          console.error("[Profile] Feedback query failed:", {
+            message: feedbackRes.error.message,
+            code: feedbackRes.error.code,
+            details: feedbackRes.error.details,
+          });
+        } else if (feedbackRes.data) {
           setFeedbackRecords(feedbackRes.data as FeedbackRecord[]);
         }
       } catch (err) {
-        console.error("Failed to fetch user data:", err);
+        console.error("[Profile] Unexpected fetch error:", {
+          userId: user.id,
+          error: err instanceof Error ? err.message : String(err),
+        });
       } finally {
         setLoading(false);
       }

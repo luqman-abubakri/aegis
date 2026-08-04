@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { ArrowRight, Mic, Type, ShieldCheck } from "lucide-react";
+import { useMemo, useState } from "react";
+import { ArrowRight, Mic, Type, ShieldCheck, Clock3 } from "lucide-react";
 import type {
   Difficulty,
   InterviewConfig,
@@ -55,8 +55,18 @@ export function InterviewSetup({
   const [difficulty, setDifficulty] = useState<Difficulty | "">("");
   const [interviewType, setInterviewType] = useState<InterviewType | "">("");
   const [mode, setMode] = useState<InterviewMode>(initialMode);
+  const [durationMinutes, setDurationMinutes] = useState(20);
 
   const ready = role && difficulty && interviewType && mode;
+  const estimatedDurationLabel = useMemo(() => {
+    if (durationMinutes < 60) {
+      return `${durationMinutes} minutes`;
+    }
+
+    const hours = Math.floor(durationMinutes / 60);
+    const remainingMinutes = durationMinutes % 60;
+    return remainingMinutes > 0 ? `${hours}h ${remainingMinutes}m` : `${hours}h`;
+  }, [durationMinutes]);
 
   const handleStart = () => {
     if (!ready) return;
@@ -65,6 +75,7 @@ export function InterviewSetup({
       interviewType: interviewType as InterviewType,
       difficulty: difficulty as Difficulty,
       mode,
+      durationMinutes,
     });
   };
 
@@ -207,12 +218,68 @@ export function InterviewSetup({
         </div>
       </div>
 
+      {/* Duration selector */}
+      <div className="mb-8 rounded-3xl border border-slate-800 bg-slate-900/60 p-6 shadow-lg shadow-slate-950/20 backdrop-blur-xl">
+        <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
+          <div className="max-w-xl">
+            <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-cyan-500/20 bg-cyan-500/10 px-3 py-1 text-sm text-cyan-300">
+              <Clock3 size={16} />
+              Interview Duration
+            </div>
+            <h3 className="text-xl font-semibold text-white">Set a realistic session length</h3>
+            <p className="mt-2 text-sm text-slate-400">
+              Choose how long you want the interview to run. The timer will count down and end the session automatically.
+            </p>
+          </div>
+
+          <div className="w-full max-w-sm rounded-2xl border border-slate-800 bg-slate-950/70 p-4">
+            <label htmlFor="duration-minutes" className="mb-2 block text-sm font-medium text-slate-300">
+              Duration (minutes)
+            </label>
+            <div className="flex items-center gap-3">
+              <input
+                id="duration-minutes"
+                type="range"
+                min="5"
+                max="120"
+                step="5"
+                value={durationMinutes}
+                onChange={(event) => setDurationMinutes(Number(event.target.value))}
+                className="h-2 w-full cursor-pointer appearance-none rounded-full bg-slate-800 accent-cyan-500"
+              />
+              <input
+                type="number"
+                min="5"
+                max="120"
+                step="5"
+                value={durationMinutes}
+                onChange={(event) => {
+                  const nextValue = Number(event.target.value);
+                  if (Number.isNaN(nextValue)) {
+                    return;
+                  }
+                  setDurationMinutes(Math.min(120, Math.max(5, nextValue)));
+                }}
+                className="w-24 rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-center text-sm font-semibold text-white outline-none focus:border-cyan-500"
+              />
+            </div>
+            <div className="mt-3 flex items-center justify-between text-xs text-slate-500">
+              <span>5 min</span>
+              <span className="rounded-full border border-cyan-500/20 bg-cyan-500/10 px-3 py-1 text-sm font-semibold text-cyan-300">
+                {estimatedDurationLabel}
+              </span>
+              <span>120 min</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
       {/* CTA */}
       <div className="rounded-3xl border border-slate-800 bg-gradient-to-r from-blue-600/10 via-cyan-600/5 to-blue-600/10 p-8 backdrop-blur-xl">
         <div className="flex flex-col items-center gap-6 sm:flex-row sm:justify-between">
           <div className="text-center sm:text-left">
-            <p className="text-sm text-slate-400">Estimated Duration</p>
-            <p className="text-xl font-bold">15–20 minutes</p>
+            <p className="text-sm text-slate-400">Selected Duration</p>
+            <p className="text-xl font-bold">{estimatedDurationLabel}</p>
           </div>
 
           <button

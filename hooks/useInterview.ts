@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import type {
   AnswerEvaluation,
@@ -11,6 +11,13 @@ import type {
 } from "@/types";
 
 const API_BASE = "/api/interview";
+
+interface ResumeInterviewQuestion {
+  id?: string;
+  question: string;
+  type?: string;
+  focus?: string;
+}
 
 const initialInterviewState: InterviewState = {
   config: null,
@@ -81,6 +88,8 @@ export function useInterview() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [startedAt, setStartedAt] = useState<number | null>(null);
+  const resumeInterviewQuestionsRef = useRef<ResumeInterviewQuestion[]>([]);
+  const resumeInterviewIndexRef = useRef(0);
 
   useEffect(() => {
     if (state.status !== "in-progress" || startedAt === null) {
@@ -104,12 +113,38 @@ export function useInterview() {
     async (
       config: InterviewConfig,
       questions: InterviewQuestion[],
-      answers: AnswerEvaluation[]
+      answers: AnswerEvaluation[],
+      resumeQuestions?: ResumeInterviewQuestion[]
     ): Promise<InterviewQuestion> => {
       const previousQuestions = questions.map((question) => ({
         question: question.question,
         answer: answers.find((answer) => answer.questionId === question.id)?.answer,
       }));
+
+      if (resumeQuestions && resumeQuestions.length > 0) {
+        const nextResumeQuestion = resumeQuestions[resumeInterviewIndexRef.current];
+        if (!nextResumeQuestion?.question?.trim()) {
+          throw new Error("The resume-based interview does not contain a valid next question.");
+        }
+
+        resumeInterviewIndexRef.current += 1;
+        const question: InterviewQuestion = {
+          id: nextResumeQuestion.id ?? generateId(),
+          question: nextResumeQuestion.question.trim(),
+          type: config.interviewType,
+          difficulty: config.difficulty,
+          followUp: false,
+        };
+
+        setState((previous) => ({
+          ...previous,
+          currentQuestion: question,
+          questions: [...previous.questions, question],
+        }));
+
+        return question;
+      }
+
       const data = await postInterviewApi<{ question?: unknown }>({
         action: "question",
         role: config.role,
@@ -142,13 +177,18 @@ export function useInterview() {
   );
 
   const startInterview = useCallback(
-    async (config: InterviewConfig): Promise<InterviewQuestion | null> => {
+    async (
+      config: InterviewConfig,
+      options?: { resumeQuestions?: ResumeInterviewQuestion[] }
+    ): Promise<InterviewQuestion | null> => {
       if (loading) {
         return null;
       }
 
       setError(null);
       setStartedAt(Date.now());
+      resumeInterviewQuestionsRef.current = options?.resumeQuestions ?? [];
+      resumeInterviewIndexRef.current = 0;
       setState({
         ...initialInterviewState,
         config,
@@ -157,7 +197,7 @@ export function useInterview() {
       setLoading(true);
 
       try {
-        return await requestQuestion(config, [], []);
+        return await requestQuestion(config, [], [], options?.resumeQuestions);
       } catch (requestError: unknown) {
         const message = getErrorMessage(
           requestError,
@@ -175,7 +215,8 @@ export function useInterview() {
 
   const fetchQuestion = useCallback(
     async (
-      answersOverride?: AnswerEvaluation[]
+      answersOverride?: AnswerEvaluation[],
+      options?: { resumeQuestions?: ResumeInterviewQuestion[] }
     ): Promise<InterviewQuestion | null> => {
       if (!state.config || loading) {
         return null;
@@ -188,7 +229,8 @@ export function useInterview() {
         return await requestQuestion(
           state.config,
           state.questions,
-          answersOverride ?? state.answers
+          answersOverride ?? state.answers,
+          options?.resumeQuestions ?? resumeInterviewQuestionsRef.current
         );
       } catch (requestError: unknown) {
         const message = getErrorMessage(
@@ -333,37 +375,72 @@ export function useInterview() {
     }
   }, [loading, state.answers, state.config]);
 
-  const saveInterview = useCallback(async (): Promise<boolean> => {
-    if (!state.config || !state.feedback) {
-      return false;
-    }
+  const saveInterview = useCallback(
+    async (feedbackOverride?: InterviewFeedback | null): Promise<boolean> => {
+      // Accept an optional feedbackOverride parameter because state.feedback
+      // may not be updated yet when this is called immediately after
+      // generateFeedback() — React state updates are async, so the setState
+      // in generateFeedback hasn't triggered a re-render yet and the
+      // state.feedback closure value is still null.
+      const feedback = feedbackOverride ?? state.feedback;
 
-    setError(null);
-    setLoading(true);
-
-    try {
-      const {
-        data: { session },
-        error: sessionError,
-      } = await supabase.auth.getSession();
-
-      if (sessionError || !session) {
-        throw new Error("Your session has expired. Please sign in again.");
+      if (!state.config || !feedback) {
+        console.error("[saveInterview] Aborted: missing config or feedback", {
+          hasConfig: !!state.config,
+          hasFeedback: !!feedback,
+          usedOverride: feedbackOverride !== undefined,
+        });
+        return false;
       }
 
-      await postInterviewApi<{ success: boolean }>(
-        {
+      setError(null);
+      setLoading(true);
+
+      try {
+        const {
+          data: { session },
+          error: sessionError,
+        } = await supabase.auth.getSession();
+
+        if (sessionError || !session) {
+          console.error("[saveInterview] Session error:", {
+            sessionError: sessionError?.message ?? null,
+          });
+          throw new Error("Your session has expired. Please sign in again.");
+        }
+
+        const savePayload = {
           action: "save",
           role: state.config.role,
           interviewType: state.config.interviewType,
           difficulty: state.config.difficulty,
           answers: state.answers,
-          score: state.feedback.overallScore,
-          feedback: state.feedback,
+          score: feedback.overallScore,
+          feedback: feedback,
           durationSeconds: state.duration,
-        },
+          startedAt: startedAt ? new Date(startedAt).toISOString() : null,
+        };
+
+      console.log("[saveInterview] Sending save request:", {
+        userId: session.user?.id ?? null,
+        role: savePayload.role,
+        interviewType: savePayload.interviewType,
+        difficulty: savePayload.difficulty,
+        overallScore: savePayload.score,
+        answerCount: savePayload.answers.length,
+        durationSeconds: savePayload.durationSeconds,
+        startedAt: savePayload.startedAt,
+      });
+
+      const result = await postInterviewApi<{ success: boolean; interview?: { id: string } }>(
+        savePayload,
         session.access_token
       );
+
+      console.log("[saveInterview] Save API response:", {
+        success: result.success,
+        interviewId: result.interview?.id ?? null,
+      });
 
       return true;
     } catch (requestError: unknown) {
@@ -371,13 +448,16 @@ export function useInterview() {
         requestError,
         "Failed to save this interview."
       );
-      console.error("Interview save request failed:", message);
+      console.error("[saveInterview] Save request failed:", {
+        message,
+        error: requestError instanceof Error ? requestError.message : String(requestError),
+      });
       setError(message);
       return false;
     } finally {
       setLoading(false);
     }
-  }, [state.answers, state.config, state.duration, state.feedback]);
+  }, [state.answers, state.config, state.duration, state.feedback, startedAt]);
 
   const endInterview = useCallback(() => {
     setState((previous) => ({

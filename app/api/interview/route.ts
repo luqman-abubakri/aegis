@@ -294,29 +294,73 @@ async function handleSave(request: Request, body: RequestBody) {
   } = await supabase.auth.getUser(accessToken);
 
   if (userError || !user) {
+    console.error("[handleSave] Auth failed:", {
+      userError: userError?.message ?? null,
+    });
     return jsonError("Your session has expired. Please sign in again.", 401);
   }
 
+  console.log("[handleSave] Save request received:", {
+    userId: user.id,
+    role: config.role,
+    interviewType: config.interviewType,
+    difficulty: config.difficulty,
+    overallScore: feedback.overallScore,
+    answerCount: evaluations.length,
+    durationSeconds: getDurationSeconds(body.durationSeconds),
+  });
+
   const completedAt = new Date().toISOString();
+  const durationSeconds = getDurationSeconds(body.durationSeconds);
+
+  // Parse startedAt from the payload (ISO string from client) or fall back to now
+  const startedAtRaw =
+    typeof body.startedAt === "string" ? body.startedAt : null;
+  const startedAt = startedAtRaw
+    ? new Date(startedAtRaw).toISOString()
+    : completedAt;
+
+  const interviewPayload = {
+    user_id: user.id,
+    role: config.role,
+    difficulty: config.difficulty,
+    interview_type: config.interviewType,
+    status: "completed",
+    score: feedback.overallScore,
+    feedback,
+    duration_seconds: durationSeconds,
+    started_at: startedAt,
+    completed_at: completedAt,
+  };
+
+  console.log("[handleSave] Inserting interview row:", {
+    table: "interviews",
+    payload: interviewPayload,
+  });
+
   const { data: interview, error: interviewError } = await supabase
     .from("interviews")
-    .insert({
-      user_id: user.id,
-      role: config.role,
-      difficulty: config.difficulty,
-      interview_type: config.interviewType,
-      status: "completed",
-      score: feedback.overallScore,
-      feedback,
-      duration_seconds: getDurationSeconds(body.durationSeconds),
-      completed_at: completedAt,
-    })
+    .insert(interviewPayload)
     .select("id")
     .single();
 
+  console.log("[handleSave] Interview insert response:", {
+    data: interview,
+    error: interviewError
+      ? { message: interviewError.message, code: interviewError.code, details: interviewError.details }
+      : null,
+  });
+
   if (interviewError) {
-    console.error("Interview save failed:", interviewError.message);
-    return jsonError(`Database error: ${interviewError.message}`, 500);
+    console.error("[handleSave] Interview INSERT failed:", {
+      userId: user.id,
+      error: interviewError.message,
+      code: interviewError.code,
+    });
+    return jsonError(
+      `Failed to save interview: ${interviewError.message}`,
+      500
+    );
   }
 
   const questionScores = evaluations.reduce(
@@ -324,7 +368,8 @@ async function handleSave(request: Request, body: RequestBody) {
     0
   );
   const averageQuestionScore = Math.round(questionScores / evaluations.length);
-  const { error: feedbackError } = await supabase.from("feedback").insert({
+
+  const feedbackPayload = {
     interview_id: interview.id,
     user_id: user.id,
     overall_score: feedback.overallScore,
@@ -333,11 +378,46 @@ async function handleSave(request: Request, body: RequestBody) {
     strengths: feedback.strengths,
     improvements: feedback.areasForImprovement,
     summary: feedback.summary,
+  };
+
+  console.log("[handleSave] Inserting feedback row:", {
+    table: "feedback",
+    payload: feedbackPayload,
+  });
+
+  const { data: feedbackData, error: feedbackError } = await supabase
+    .from("feedback")
+    .insert(feedbackPayload)
+    .select("id")
+    .single();
+
+  console.log("[handleSave] Feedback insert response:", {
+    data: feedbackData,
+    error: feedbackError
+      ? { message: feedbackError.message, code: feedbackError.code, details: feedbackError.details }
+      : null,
   });
 
   if (feedbackError) {
-    console.error("Feedback record save failed:", feedbackError.message);
+    console.error("[handleSave] Feedback INSERT failed:", {
+      userId: user.id,
+      interviewId: interview.id,
+      error: feedbackError.message,
+      code: feedbackError.code,
+    });
+    // Do NOT swallow this error. The feedback write failed, so the save
+    // is incomplete. Return an error so the client knows it was not saved.
+    return jsonError(
+      `Failed to save feedback: ${feedbackError.message}`,
+      500
+    );
   }
+
+  console.log("[handleSave] Save completed successfully:", {
+    userId: user.id,
+    interviewId: interview.id,
+    feedbackId: feedbackData?.id,
+  });
 
   return NextResponse.json({ success: true, interview });
 }

@@ -58,15 +58,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       await supabase.auth.signOut();
       setUser(null);
       router.push("/");
-    } catch {
-      // Ignore errors during logout
+    } catch (err: unknown) {
+      console.error("[Auth] Logout error:", {
+        error: err instanceof Error ? err.message : String(err),
+      });
     } finally {
       setLoading(false);
     }
   }, [router]);
 
   useEffect(() => {
-    refreshUser();
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    void refreshUser();
 
     // Listen for auth state changes
     const {

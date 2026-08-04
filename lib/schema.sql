@@ -1,5 +1,7 @@
 -- AEGIS Supabase Database Schema
 -- Run this in the Supabase SQL Editor to set up tables
+-- This is the canonical schema. For incremental migrations on an
+-- existing project, use supabase/migrations/0001_fix_schema_and_policies.sql
 
 -- 1. Profiles table (auto-created on user signup via database trigger)
 CREATE TABLE IF NOT EXISTS public.profiles (
@@ -58,6 +60,7 @@ CREATE TABLE IF NOT EXISTS public.interviews (
   status TEXT NOT NULL DEFAULT 'in_progress',
   score INTEGER,
   feedback JSONB,
+  duration_seconds INTEGER DEFAULT 0,
   started_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   completed_at TIMESTAMPTZ,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -78,6 +81,10 @@ CREATE POLICY "Users can update own interviews"
   ON public.interviews FOR UPDATE
   USING (auth.uid() = user_id);
 
+CREATE POLICY "Users can delete own interviews"
+  ON public.interviews FOR DELETE
+  USING (auth.uid() = user_id);
+
 -- 3. Feedback table
 CREATE TABLE IF NOT EXISTS public.feedback (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -96,6 +103,18 @@ ALTER TABLE public.feedback ENABLE ROW LEVEL SECURITY;
 
 CREATE POLICY "Users can view own feedback"
   ON public.feedback FOR SELECT
+  USING (auth.uid() = user_id);
+
+CREATE POLICY "Users can insert own feedback"
+  ON public.feedback FOR INSERT
+  WITH CHECK (auth.uid() = user_id);
+
+CREATE POLICY "Users can update own feedback"
+  ON public.feedback FOR UPDATE
+  USING (auth.uid() = user_id);
+
+CREATE POLICY "Users can delete own feedback"
+  ON public.feedback FOR DELETE
   USING (auth.uid() = user_id);
 
 -- 4. Resume uploads table
@@ -122,6 +141,14 @@ CREATE POLICY "Users can insert own resumes"
   ON public.resume_uploads FOR INSERT
   WITH CHECK (auth.uid() = user_id);
 
+CREATE POLICY "Users can update own resumes"
+  ON public.resume_uploads FOR UPDATE
+  USING (auth.uid() = user_id);
+
+CREATE POLICY "Users can delete own resumes"
+  ON public.resume_uploads FOR DELETE
+  USING (auth.uid() = user_id);
+
 -- 5. Learning roadmaps table
 CREATE TABLE IF NOT EXISTS public.learning_roadmaps (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -143,10 +170,48 @@ CREATE POLICY "Users can insert own roadmaps"
   ON public.learning_roadmaps FOR INSERT
   WITH CHECK (auth.uid() = user_id);
 
+-- =============================================================
+-- Storage bucket: resumes
+-- =============================================================
+-- The application uploads PDF resumes to a private "resumes" bucket.
+-- File paths follow the pattern: {user_id}/{timestamp}.pdf
+INSERT INTO storage.buckets (id, name, public)
+VALUES ('resumes', 'resumes', false)
+ON CONFLICT (id) DO NOTHING;
+
+CREATE POLICY "Users can upload own resumes"
+  ON storage.objects FOR INSERT
+  WITH CHECK (
+    bucket_id = 'resumes'
+    AND auth.uid()::text = (storage.foldername(name))[1]
+  );
+
+CREATE POLICY "Users can view own resumes"
+  ON storage.objects FOR SELECT
+  USING (
+    bucket_id = 'resumes'
+    AND auth.uid()::text = (storage.foldername(name))[1]
+  );
+
+CREATE POLICY "Users can update own resumes"
+  ON storage.objects FOR UPDATE
+  USING (
+    bucket_id = 'resumes'
+    AND auth.uid()::text = (storage.foldername(name))[1]
+  );
+
+CREATE POLICY "Users can delete own resumes"
+  ON storage.objects FOR DELETE
+  USING (
+    bucket_id = 'resumes'
+    AND auth.uid()::text = (storage.foldername(name))[1]
+  );
+
 -- Indexes for performance
 CREATE INDEX IF NOT EXISTS idx_interviews_user_id ON public.interviews(user_id);
+CREATE INDEX IF NOT EXISTS idx_interviews_status ON public.interviews(status);
+CREATE INDEX IF NOT EXISTS idx_interviews_completed_at ON public.interviews(completed_at);
 CREATE INDEX IF NOT EXISTS idx_feedback_user_id ON public.feedback(user_id);
 CREATE INDEX IF NOT EXISTS idx_feedback_interview_id ON public.feedback(interview_id);
 CREATE INDEX IF NOT EXISTS idx_resume_uploads_user_id ON public.resume_uploads(user_id);
 CREATE INDEX IF NOT EXISTS idx_learning_roadmaps_user_id ON public.learning_roadmaps(user_id);
-

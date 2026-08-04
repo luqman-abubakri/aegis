@@ -158,6 +158,7 @@ export function useVapi({ enabled = true, ...options }: UseVapiOptions = {}) {
     transcript: "",
     error: null,
   });
+  const [isInitialized, setIsInitialized] = useState(false);
   const vapiRef = useRef<Vapi | null>(null);
   const optionsRef = useRef(options);
 
@@ -186,6 +187,7 @@ export function useVapi({ enabled = true, ...options }: UseVapiOptions = {}) {
     }
 
     if (!vapiPublicKey) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       reportError(
         new Error("NEXT_PUBLIC_VAPI_PUBLIC_KEY is not set in environment variables.")
       );
@@ -193,6 +195,7 @@ export function useVapi({ enabled = true, ...options }: UseVapiOptions = {}) {
     }
 
     const vapi = new Vapi(vapiPublicKey);
+    setIsInitialized(true);
     vapiRef.current = vapi;
 
     const handleCallStart = () => {
@@ -250,6 +253,7 @@ export function useVapi({ enabled = true, ...options }: UseVapiOptions = {}) {
       vapi.removeAllListeners();
       void vapi.stop().catch(() => undefined);
       vapiRef.current = null;
+      setIsInitialized(false);
     };
   }, [enabled, reportError]);
 
@@ -354,6 +358,6 @@ export function useVapi({ enabled = true, ...options }: UseVapiOptions = {}) {
     endCall,
     toggleMute,
     speak,
-    isInitialized: vapiRef.current !== null,
+    isInitialized,
   };
 }

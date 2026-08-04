@@ -16,6 +16,7 @@ export default function InterviewPage() {
         difficulty: config.difficulty,
         interviewType: config.interviewType,
         mode: config.mode,
+        duration: String(config.durationMinutes ?? 20),
       });
       router.push(`/interview/session?${params.toString()}`);
     },

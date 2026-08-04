@@ -5,16 +5,29 @@ import { Menu, X, ShieldCheck, LogOut, User as UserIcon } from "lucide-react";
 import { useState } from "react";
 import { useAuth } from "@/contexts/AuthProvider";
 import { useRouter } from "next/navigation";
+import { ConfirmDialog } from "@/components/ConfirmDialog";
 
 const Navbar = () => {
   const [open, setOpen] = useState(false);
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
+  const [loggingOut, setLoggingOut] = useState(false);
   const { user, loading, logout } = useAuth();
   const router = useRouter();
 
-  const handleLogout = async () => {
-    await logout();
-    setOpen(false);
-    router.push("/");
+  const requestLogout = () => {
+    setShowLogoutConfirm(true);
+  };
+
+  const confirmLogout = async () => {
+    setLoggingOut(true);
+    try {
+      await logout();
+      setOpen(false);
+      router.push("/");
+    } finally {
+      setLoggingOut(false);
+      setShowLogoutConfirm(false);
+    }
   };
 
   return (
@@ -61,7 +74,7 @@ const Navbar = () => {
               </Link>
 
               <button
-                onClick={handleLogout}
+                onClick={requestLogout}
                 className="flex items-center gap-2 rounded-xl border border-slate-700 px-5 py-2 text-sm font-medium text-slate-300 transition-all duration-300 hover:border-red-500 hover:bg-red-500/10 hover:text-red-400"
               >
                 <LogOut size={16} />
@@ -126,7 +139,7 @@ const Navbar = () => {
                 </Link>
 
                 <button
-                  onClick={handleLogout}
+                  onClick={requestLogout}
                   className="flex w-full items-center justify-center gap-2 rounded-xl border border-slate-700 py-3 font-medium text-slate-300 transition-all duration-300 hover:border-red-500 hover:bg-red-500/10 hover:text-red-400"
                 >
                   <LogOut size={16} />
@@ -155,6 +168,20 @@ const Navbar = () => {
           </div>
         </div>
       )}
+      <ConfirmDialog
+        open={showLogoutConfirm}
+        title="Sign Out"
+        message="Are you sure you want to sign out of your account?"
+        confirmLabel="Sign Out"
+        variant="danger"
+        loading={loggingOut}
+        onConfirm={() => void confirmLogout()}
+        onCancel={() => {
+          if (!loggingOut) {
+            setShowLogoutConfirm(false);
+          }
+        }}
+      />
     </header>
   );
 };

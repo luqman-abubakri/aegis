@@ -10,8 +10,10 @@ import { InterviewSetup } from "@/components/interview/InterviewSetup";
 import { InterviewChat } from "@/components/interview/InterviewChat";
 import { VoiceControls } from "@/components/interview/VoiceControls";
 import { FeedbackCard } from "@/components/interview/FeedbackCard";
-import { Bot, ArrowLeft, Loader2, CheckCircle, AlertTriangle } from "lucide-react";
+import { Bot, ArrowLeft, Loader2, CheckCircle, AlertTriangle, Clock3 } from "lucide-react";
 import type { InterviewConfig, Difficulty } from "@/types";
+
+const RESUME_INTERVIEW_STORAGE_KEY = "aegis_resume_interview";
 
 function LoadingFallback() {
   return (
@@ -19,6 +21,13 @@ function LoadingFallback() {
       <Loader2 size={40} className="animate-spin text-blue-400" />
     </div>
   );
+}
+
+function formatTime(seconds: number) {
+  const safeSeconds = Math.max(0, seconds);
+  const mins = Math.floor(safeSeconds / 60);
+  const secs = safeSeconds % 60;
+  return `${mins}:${secs.toString().padStart(2, "0")}`;
 }
 
 export default function SessionPage() {
@@ -35,10 +44,15 @@ function SessionContent() {
   const interview = useInterview();
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
   const [questionCount, setQuestionCount] = useState(0);
   const [vapiErrorMsg, setVapiErrorMsg] = useState<string | null>(null);
+  const [timeRemaining, setTimeRemaining] = useState(20 * 60);
+  const [selectedDurationMinutes, setSelectedDurationMinutes] = useState(20);
+  const [resumeQuestions, setResumeQuestions] = useState<Array<{ id?: string; question: string; type?: string; focus?: string }>>([]);
   const MAX_QUESTIONS = 5;
   const finishInterviewRef = useRef<() => void>(() => {});
+  const autoFinishTriggeredRef = useRef(false);
 
   const handleTranscriptUpdate = useCallback(
     (transcript: string) => {
@@ -62,6 +76,8 @@ function SessionContent() {
   const difficultyParam = searchParams.get("difficulty") || "";
   const interviewTypeParam = searchParams.get("interviewType") || "";
   const modeParam = searchParams.get("mode") || "";
+  const durationParam = searchParams.get("duration") || "";
+  const resumeInterviewParam = searchParams.get("resumeInterview") === "1" || searchParams.get("resumeInterview") === "true";
   const hasUrlConfig = !!(roleParam && difficultyParam && interviewTypeParam);
   const voiceMode = modeParam === "voice";
 
@@ -69,18 +85,27 @@ function SessionContent() {
     if (interview.state.status === "completed") {
       return;
     }
-    interview.endInterview();
+
+    setSaveError(null);
+
     const feedback = await interview.generateFeedback();
-    if (feedback) {
-      setSaving(true);
-      const success = await interview.saveInterview();
-      if (success) {
-        setSaved(true);
-        setTimeout(() => {
-          router.push("/dashboard");
-        }, 1500);
-      }
-      setSaving(false);
+    if (!feedback) {
+      setSaveError(interview.error || "Failed to generate feedback. Please try again.");
+      return;
+    }
+
+    setSaving(true);
+    const success = await interview.saveInterview(feedback);
+    setSaving(false);
+
+    if (success) {
+      setSaved(true);
+      setSaveError(null);
+      setTimeout(() => {
+        router.push("/dashboard");
+      }, 1500);
+    } else {
+      setSaveError(interview.error || "Failed to save interview. Please try again.");
     }
   }, [interview, router]);
 
@@ -89,27 +114,108 @@ function SessionContent() {
   }, [handleFinishInterview]);
 
   const handleStartInterview = useCallback(
-    (config: InterviewConfig) => {
-      interview.startInterview(config);
-      setTimeout(() => {
-        interview.fetchQuestion();
-      }, 300);
+    async (config: InterviewConfig) => {
+      const normalizedDurationMinutes = Math.max(
+        5,
+        Math.min(120, Number(config.durationMinutes ?? (Number(durationParam) || 20)))
+      );
+      setSelectedDurationMinutes(normalizedDurationMinutes);
+      setTimeRemaining(normalizedDurationMinutes * 60);
+      autoFinishTriggeredRef.current = false;
+      setQuestionCount(0);
+      setSaved(false);
+      setSaveError(null);
+      await interview.startInterview(
+        { ...config, durationMinutes: normalizedDurationMinutes },
+        resumeInterviewParam ? { resumeQuestions } : undefined
+      );
     },
-    [interview]
+    [durationParam, interview, resumeInterviewParam, resumeQuestions]
   );
 
+  const [startupConfig, setStartupConfig] = useState<InterviewConfig | null>(null);
+
   useEffect(() => {
-    if (hasUrlConfig && roleParam && difficultyParam && interviewTypeParam) {
-      const config: InterviewConfig = {
-        role: roleParam,
-        interviewType: interviewTypeParam as InterviewConfig["interviewType"],
-        difficulty: difficultyParam as Difficulty,
-        mode: modeParam === "voice" ? "voice" : "text",
-      };
-      handleStartInterview(config);
+    if (!resumeInterviewParam) {
+      return;
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [hasUrlConfig]);
+
+    const stored = window.localStorage.getItem(RESUME_INTERVIEW_STORAGE_KEY);
+    if (!stored) {
+      return;
+    }
+
+    const timeout = window.setTimeout(() => {
+      try {
+        const parsed = JSON.parse(stored) as {
+          questions?: Array<{ id?: string; question?: string; type?: string; focus?: string }>;
+        };
+        const nextQuestions = (parsed.questions ?? []).filter(
+          (question): question is { id?: string; question: string; type?: string; focus?: string } =>
+            typeof question?.question === "string" && question.question.trim().length > 0
+        );
+        setResumeQuestions(nextQuestions);
+      } catch {
+        setResumeQuestions([]);
+      }
+    }, 0);
+
+    return () => window.clearTimeout(timeout);
+  }, [resumeInterviewParam]);
+
+  useEffect(() => {
+    if (!hasUrlConfig || !roleParam || !difficultyParam || !interviewTypeParam) {
+      return;
+    }
+
+    const nextConfig: InterviewConfig = {
+      role: roleParam,
+      interviewType: interviewTypeParam as InterviewConfig["interviewType"],
+      difficulty: difficultyParam as Difficulty,
+      mode: modeParam === "voice" ? "voice" : "text",
+      durationMinutes: Number(durationParam) || 20,
+    };
+
+    setStartupConfig(nextConfig);
+  }, [durationParam, difficultyParam, hasUrlConfig, interviewTypeParam, modeParam, roleParam]);
+
+  useEffect(() => {
+    if (!startupConfig) {
+      return;
+    }
+
+    void handleStartInterview(startupConfig);
+    setStartupConfig(null);
+  }, [handleStartInterview, startupConfig]);
+
+  useEffect(() => {
+    if (interview.state.status !== "in-progress") {
+      return;
+    }
+
+    const interval = window.setInterval(() => {
+      setTimeRemaining((previous) => {
+        if (previous <= 1) {
+          window.clearInterval(interval);
+          return 0;
+        }
+        return previous - 1;
+      });
+    }, 1000);
+
+    return () => window.clearInterval(interval);
+  }, [interview.state.status]);
+
+  useEffect(() => {
+    if (
+      interview.state.status === "in-progress" &&
+      timeRemaining <= 0 &&
+      !autoFinishTriggeredRef.current
+    ) {
+      autoFinishTriggeredRef.current = true;
+      void handleFinishInterview();
+    }
+  }, [handleFinishInterview, interview.state.status, timeRemaining]);
 
   const handleSubmitAnswer = useCallback(
     async (answer: string) => {
@@ -120,14 +226,14 @@ function SessionContent() {
   );
 
   const handleNextQuestion = useCallback(async () => {
-    const newCount = questionCount + 1;
-    setQuestionCount(newCount);
-    if (newCount >= MAX_QUESTIONS) {
+    const nextCount = questionCount + 1;
+    setQuestionCount(nextCount);
+    if (nextCount >= MAX_QUESTIONS) {
       await handleFinishInterview();
     } else {
-      await interview.fetchQuestion();
+      await interview.fetchQuestion(undefined, resumeInterviewParam ? { resumeQuestions } : undefined);
     }
-  }, [questionCount, interview, handleFinishInterview]);
+  }, [questionCount, interview, handleFinishInterview, resumeInterviewParam, resumeQuestions]);
 
   const handleVoiceStartCall = useCallback(async () => {
     setVapiErrorMsg(null);
@@ -142,12 +248,14 @@ function SessionContent() {
     await handleFinishInterview();
   }, [vapi, handleFinishInterview]);
 
-  // Completed state
+  const progressValue = ((questionCount + 1) / MAX_QUESTIONS) * 100;
+  const timerPercent = (timeRemaining / (selectedDurationMinutes * 60)) * 100;
+
   if (interview.state.status === "completed" && interview.state.feedback) {
     return (
       <ProtectedRoute>
-        <main className="min-h-screen bg-[#020817] pt-28 pb-20 text-white">
-          <div className="mx-auto max-w-5xl px-5">
+        <main className="min-h-screen overflow-x-hidden bg-[#020817] px-4 pb-20 pt-28 text-white sm:px-6">
+          <div className="mx-auto max-w-5xl">
             <button
               onClick={() => router.push("/interview")}
               className="mb-8 inline-flex items-center gap-2 text-sm text-slate-400 transition-colors hover:text-white"
@@ -164,7 +272,22 @@ function SessionContent() {
             {saved && (
               <div className="mb-6 flex items-center justify-center gap-2 text-sm text-emerald-400">
                 <CheckCircle size={16} />
-                Interview saved successfully!
+                Interview saved successfully! Redirecting to dashboard...
+              </div>
+            )}
+            {saveError && !saved && (
+              <div className="mb-6 flex flex-col items-center gap-3 rounded-xl border border-red-500/30 bg-red-500/10 p-4 text-center text-sm text-red-400">
+                <div className="flex items-center gap-2">
+                  <AlertTriangle size={16} />
+                  <span>{saveError}</span>
+                </div>
+                <button
+                  onClick={() => void handleFinishInterview()}
+                  disabled={saving}
+                  className="rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-2 text-xs font-semibold text-red-400 transition-all hover:bg-red-500/20 disabled:opacity-50"
+                >
+                  {saving ? "Retrying..." : "Retry Save"}
+                </button>
               </div>
             )}
             <FeedbackCard
@@ -179,14 +302,13 @@ function SessionContent() {
     );
   }
 
-  // Setup state
   if (interview.state.status === "idle" || interview.state.status === "setup") {
     return (
       <ProtectedRoute>
-        <main className="min-h-screen bg-[#020817] pt-28 pb-20 text-white">
+        <main className="min-h-screen overflow-x-hidden bg-[#020817] px-4 pb-20 pt-28 text-white sm:px-6">
           <button
             onClick={() => router.push("/interview")}
-            className="mx-auto mb-8 flex max-w-5xl items-center gap-2 px-5 text-sm text-slate-400 transition-colors hover:text-white"
+            className="mx-auto mb-8 flex max-w-5xl items-center gap-2 px-1 text-sm text-slate-400 transition-colors hover:text-white"
           >
             <ArrowLeft size={16} />
             Back to Setup
@@ -197,45 +319,53 @@ function SessionContent() {
     );
   }
 
-  // In-progress state
   return (
     <ProtectedRoute>
-      <main className="min-h-screen bg-[#020817] pt-24 pb-20 text-white">
-        <div className="mx-auto flex h-[calc(100vh-10rem)] max-w-6xl flex-col px-5">
-          {/* Header bar */}
-          <div className="mb-4 flex items-center justify-between rounded-2xl border border-slate-800 bg-slate-900/60 p-4 backdrop-blur-xl">
-            <div className="flex items-center gap-4">
-              <div className="flex h-12 w-12 items-center justify-center rounded-full bg-gradient-to-br from-blue-500 to-cyan-500">
-                <Bot size={24} className="text-white" />
+      <main className="min-h-screen overflow-x-hidden bg-[#020817] px-3 pb-20 pt-24 text-white sm:px-5 lg:px-6">
+        <div className="mx-auto flex min-h-[calc(100vh-8rem)] w-full max-w-7xl flex-col">
+          <div className="mb-4 flex flex-col gap-3 rounded-2xl border border-slate-800 bg-slate-900/70 p-4 shadow-lg shadow-slate-950/20 backdrop-blur-xl lg:flex-row lg:items-center lg:justify-between">
+            <div className="flex min-w-0 items-center gap-3">
+              <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-blue-500 to-cyan-500">
+                <Bot size={22} className="text-white" />
               </div>
-              <div>
-                <p className="text-sm font-semibold text-white">AI Interviewer</p>
-                <p className="text-xs text-slate-400">
-                  {interview.state.config?.role} &middot;{" "}
-                  {interview.state.config?.interviewType} &middot;{" "}
-                  {interview.state.config?.difficulty}
+              <div className="min-w-0">
+                <p className="truncate text-sm font-semibold text-white">AI Interviewer</p>
+                <p className="truncate text-xs text-slate-400">
+                  {interview.state.config?.role} • {interview.state.config?.interviewType} • {interview.state.config?.difficulty}
                 </p>
               </div>
             </div>
-            <div className="flex items-center gap-4">
-              <div className="text-right">
-                <p className="text-sm text-slate-400">
-                  Question {questionCount + 1}/{MAX_QUESTIONS}
-                </p>
-                <div className="mt-1 h-1.5 w-24 overflow-hidden rounded-full bg-slate-800">
+            <div className="flex flex-wrap items-center gap-3 sm:gap-4">
+              <div className="min-w-[180px] rounded-xl border border-slate-800 bg-slate-950/70 px-3 py-2">
+                <div className="mb-1 flex items-center justify-between text-[11px] uppercase tracking-[0.2em] text-slate-500">
+                  <span>Time left</span>
+                  <span>{formatTime(timeRemaining)}</span>
+                </div>
+                <div className="h-2 overflow-hidden rounded-full bg-slate-800">
+                  <div
+                    className="h-full rounded-full bg-gradient-to-r from-cyan-500 to-blue-500 transition-all duration-500"
+                    style={{ width: `${Math.max(0, timerPercent)}%` }}
+                  />
+                </div>
+              </div>
+              <div className="min-w-[160px] rounded-xl border border-slate-800 bg-slate-950/70 px-3 py-2">
+                <div className="mb-1 flex items-center justify-between text-[11px] uppercase tracking-[0.2em] text-slate-500">
+                  <span>Question</span>
+                  <span>{questionCount + 1}/{MAX_QUESTIONS}</span>
+                </div>
+                <div className="h-2 overflow-hidden rounded-full bg-slate-800">
                   <div
                     className="h-full rounded-full bg-gradient-to-r from-blue-500 to-cyan-500 transition-all duration-500"
-                    style={{
-                      width: `${((questionCount + 1) / MAX_QUESTIONS) * 100}%`,
-                    }}
+                    style={{ width: `${Math.max(0, progressValue)}%` }}
                   />
                 </div>
               </div>
               <button
-                onClick={handleFinishInterview}
-                className="rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-2 text-sm font-semibold text-red-400 transition-all duration-300 hover:bg-red-500/20"
+                onClick={() => void handleFinishInterview()}
+                className="inline-flex items-center gap-2 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-2 text-sm font-semibold text-red-400 transition-all duration-300 hover:bg-red-500/20"
               >
-                End Interview
+                <Clock3 size={16} />
+                Finish
               </button>
             </div>
           </div>
@@ -247,12 +377,10 @@ function SessionContent() {
             </div>
           )}
 
-          {/* Content area */}
-          <div className="flex flex-1 gap-6 overflow-hidden">
-            {/* Voice mode sidebar */}
+          <div className="flex flex-1 flex-col gap-4 lg:flex-row lg:overflow-hidden">
             {voiceMode && (
-              <div className="flex w-72 flex-shrink-0 flex-col gap-4">
-                <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-5 backdrop-blur-xl">
+              <aside className="w-full shrink-0 lg:w-80">
+                <div className="h-full rounded-2xl border border-slate-800 bg-slate-900/70 p-4 shadow-lg shadow-slate-950/20 backdrop-blur-xl">
                   <h3 className="mb-4 text-sm font-semibold text-slate-300">Voice Controls</h3>
                   <VoiceControls
                     callStatus={vapi.callStatus}
@@ -263,19 +391,18 @@ function SessionContent() {
                   />
                   {vapi.callStatus.transcript && (
                     <div className="mt-4">
-                      <p className="mb-2 text-xs font-medium text-slate-500">Live Transcript</p>
-                      <div className="max-h-40 overflow-y-auto rounded-lg bg-slate-800/50 p-3">
-                        <p className="whitespace-pre-wrap text-xs text-slate-400">{vapi.callStatus.transcript}</p>
+                      <p className="mb-2 text-xs font-medium uppercase tracking-[0.2em] text-slate-500">Live Transcript</p>
+                      <div className="max-h-48 overflow-y-auto rounded-xl bg-slate-800/50 p-3">
+                        <p className="whitespace-pre-wrap break-words text-sm text-slate-400">{vapi.callStatus.transcript}</p>
                       </div>
                     </div>
                   )}
                 </div>
-              </div>
+              </aside>
             )}
 
-            {/* Text interview chat */}
             {!voiceMode && (
-              <div className="flex flex-1 flex-col overflow-hidden rounded-2xl border border-slate-800 bg-slate-900/40 backdrop-blur-xl">
+              <div className="flex min-w-0 flex-1 flex-col overflow-hidden rounded-2xl border border-slate-800 bg-slate-900/70 shadow-lg shadow-slate-950/20 backdrop-blur-xl">
                 <InterviewChat
                   currentQuestion={interview.state.currentQuestion}
                   onSubmitAnswer={handleSubmitAnswer}
@@ -287,23 +414,39 @@ function SessionContent() {
               </div>
             )}
 
-            {/* Voice interview main area */}
             {voiceMode && (
-              <div className="flex flex-1 flex-col rounded-2xl border border-slate-800 bg-slate-900/40 p-6 backdrop-blur-xl">
+              <section className="flex min-w-0 flex-1 flex-col rounded-2xl border border-slate-800 bg-slate-900/70 p-4 shadow-lg shadow-slate-950/20 backdrop-blur-xl sm:p-6">
                 {interview.state.currentQuestion ? (
-                  <div>
-                    <p className="mb-2 text-xs font-medium text-blue-400">Current Question</p>
-                    <h2 className="text-xl font-semibold leading-relaxed text-white">
-                      {interview.state.currentQuestion.question}
-                    </h2>
-                    <p className="mt-4 text-sm text-slate-500">
-                      Speak your answer using the voice controls on the left.
-                    </p>
+                  <div className="flex flex-1 flex-col">
+                    <div className="rounded-2xl border border-blue-500/20 bg-blue-500/10 p-4 sm:p-5">
+                      <p className="mb-2 text-xs font-medium uppercase tracking-[0.2em] text-blue-400">Current Question</p>
+                      <h2 className="text-lg font-semibold leading-relaxed text-white break-words sm:text-xl">
+                        {interview.state.currentQuestion.question}
+                      </h2>
+                    </div>
+                    <div className="mt-4 rounded-2xl border border-slate-800 bg-slate-950/40 p-4 text-sm text-slate-400">
+                      <p className="font-medium text-slate-300">Voice guidance</p>
+                      <p className="mt-2 leading-relaxed">
+                        Speak clearly and answer at a steady pace. Your transcript will appear here as you respond.
+                      </p>
+                    </div>
+                    {interview.state.transcript.length > 0 && (
+                      <div className="mt-4 flex-1 overflow-hidden rounded-2xl border border-slate-800 bg-slate-950/40 p-4">
+                        <p className="mb-3 text-xs font-medium uppercase tracking-[0.2em] text-slate-500">Conversation History</p>
+                        <div className="max-h-[320px] space-y-2 overflow-y-auto pr-1">
+                          {interview.state.transcript.map((entry: string, index: number) => (
+                            <p key={`${entry}-${index}`} className="rounded-lg bg-slate-800/60 p-3 text-sm text-slate-400 break-words">
+                              {entry}
+                            </p>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 ) : (
-                  <div className="flex items-center justify-center py-20">
+                  <div className="flex flex-1 items-center justify-center py-12">
                     <div className="text-center">
-                      <Loader2 size={40} className="mx-auto animate-spin text-blue-400" />
+                      <Loader2 size={36} className="mx-auto animate-spin text-blue-400" />
                       <p className="mt-4 text-slate-400">
                         {vapi.callStatus.status === "connected"
                           ? "Generating question..."
@@ -312,19 +455,7 @@ function SessionContent() {
                     </div>
                   </div>
                 )}
-                {interview.state.transcript.length > 0 && (
-                  <div className="mt-6 border-t border-slate-800 pt-4">
-                    <p className="mb-3 text-xs font-medium text-slate-500">Conversation History</p>
-                    <div className="max-h-60 space-y-2 overflow-y-auto">
-                      {interview.state.transcript.map((t: string, i: number) => (
-                        <p key={i} className="rounded-lg bg-slate-800/30 p-2 text-sm text-slate-400">
-                          {t}
-                        </p>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
+              </section>
             )}
           </div>
         </div>

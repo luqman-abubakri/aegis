@@ -16,6 +16,35 @@ export interface InterviewConfig {
   interviewType: InterviewType;
   difficulty: Difficulty;
   mode: InterviewMode;
+  durationMinutes?: number;
+}
+
+export interface ResumeAnalysis {
+  overallScore: number;
+  atsScore: number;
+  interviewReadiness: number;
+  technicalSkills: string[];
+  softSkills: string[];
+  missingSkills: string[];
+  strengths: string[];
+  weaknesses: string[];
+  grammarIssues: string[];
+  formattingIssues: string[];
+  recommendations: string[];
+  suggestedProjects: string[];
+  suggestedCertifications: string[];
+  suggestedTechnologies: string[];
+}
+
+export interface ResumeGeneratedInterview {
+  title: string;
+  description: string;
+  questions: Array<{
+    id: string;
+    type: "technical" | "behavioral" | "project" | "problem-solving" | "follow-up";
+    question: string;
+    focus: string;
+  }>;
 }
 
 export interface InterviewQuestion {
