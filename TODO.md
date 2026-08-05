@@ -1,20 +1,29 @@
-# AEGIS - PDF Parsing Fix Tracking
+# AEGIS — Interview Reliability Fixes
 
-## Root Cause
-- Installed `pdf-parse@2.4.5` is a **v2 rewrite** that exports a **named class `PDFParse`** (with `getText()`/`destroy()` methods).
-- The old code expected the **v1 default-exported callable function** (`pdf(buffer).then(r => r.text)`).
-- `pdfParseModule.default` is `undefined` in v2 → the old detection threw "The PDF parser could not be loaded."
+## Investigation Complete — Root Causes Found
 
-## Plan Steps
-- [x] Investigate installed pdf-parse version and exports.
-- [x] Confirm root cause (v1 → v2 breaking API change).
-- [x] Rewrite `extractPdfText()` in `app/api/resume/route.ts` to use `PDFParse` v2 class API.
-- [x] Preserve `extractPdfText(buffer: Buffer): Promise<string>` interface.
-- [x] Ensure parser cleanup via `destroy()`.
-- [x] Keep existing error handling and step logging.
-- [x] Verify the full resume analysis pipeline works end-to-end.
+### BUG #1 — Finish Interview Unreliable
+- [x] No atomic duplicate-execution guard (stale closure on `status`)
+- [x] `generateFeedback()` blocks on `loading` and empty answers → silently fails
+- [x] Voice mode double-executes finish (`handleVoiceEndCall` + `onCallEnded`)
+- [x] `finishInterviewRef` starts as no-op, can miss early `onCallEnded`
+- [x] `saveInterview` stale-closure bug (async `setState` feedback)
+- [x] Orphaned redirect `setTimeout` not cleaned up
+- [x] No `router.refresh()` before redirect
 
-## Verification
-- `pdf-parse@2.4.5` exports a named `PDFParse` class (v2 API), NOT a default-exported function.
-- Runtime test with a real PDF buffer: `new PDFParse({ data })` → `getText()` → extracted text, `destroy()` succeeded.
-- `npx tsc --noEmit` produced no errors for `app/api/resume/route.ts`.
+### BUG #2 — Timer Unreliable
+- [x] Decrement-based countdown drifts (browser throttling)
+- [x] Timer keeps running during finish → can trigger duplicate finish
+- [x] `autoFinishTriggeredRef` never resets on failure → interview stuck
+- [x] No `visibilitychange` handling
+- [x] Two separate intervals (useInterview + session page)
+
+## Implementation Steps
+
+- [x] **hooks/useInterview.ts** — Added refs for latest state (answers, config, duration), `isFinishingRef` atomic guard, new `finishInterview()` method, fixed `generateFeedback`/`saveInterview` stale closures, added `resetFinishing()`
+- [x] **app/interview/session/page.tsx** — Replaced timer with timestamp-based implementation, atomic finish guard, progress states, disabled button, stops voice on finish, fixed voice double-fire, resets auto-finish on failure, cleans up redirect timeout, `router.refresh()`, fixed useEffect deps, added `finishCompletedRef` to prevent post-completion duplicate
+- [x] **app/api/interview/route.ts** — Allowed empty evaluations in feedback/save (prevent data loss on 0-answer finish), fixed division-by-zero on empty answers
+- [x] **hooks/useVapi.ts** — Added `callEndedRef` guard so `onCallEnded` fires once per call
+- [x] Verified all `useEffect` dependency arrays — no stale closures, stable callbacks, refs for mutable state
+- [x] Verified `npm run build` — compiled successfully (TypeScript passed, all routes generated)
+- [ ] Manual test: rapid clicking, tab switching, voice mode, text mode, 0-answer finish, timer expiry

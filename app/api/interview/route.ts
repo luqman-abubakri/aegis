@@ -251,8 +251,8 @@ async function handleFeedback(body: RequestBody) {
     return jsonError(config.error, 400);
   }
 
-  if (!evaluations || evaluations.length === 0) {
-    return jsonError("At least one answer evaluation is required", 400);
+  if (!evaluations) {
+    return jsonError("The evaluations payload must be an array", 400);
   }
 
   try {
@@ -273,8 +273,8 @@ async function handleSave(request: Request, body: RequestBody) {
     return jsonError(config.error, 400);
   }
 
-  if (!evaluations || evaluations.length === 0) {
-    return jsonError("At least one answer evaluation is required", 400);
+  if (!evaluations) {
+    return jsonError("The answers payload must be an array", 400);
   }
 
   const feedback = parseFeedback(body.feedback, evaluations);
@@ -367,7 +367,10 @@ async function handleSave(request: Request, body: RequestBody) {
     (total, evaluation) => total + evaluation.score,
     0
   );
-  const averageQuestionScore = Math.round(questionScores / evaluations.length);
+  const averageQuestionScore =
+    evaluations.length > 0
+      ? Math.round(questionScores / evaluations.length)
+      : feedback.overallScore;
 
   const feedbackPayload = {
     interview_id: interview.id,

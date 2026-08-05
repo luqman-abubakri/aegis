@@ -90,6 +90,29 @@ export function useInterview() {
   const [startedAt, setStartedAt] = useState<number | null>(null);
   const resumeInterviewQuestionsRef = useRef<ResumeInterviewQuestion[]>([]);
   const resumeInterviewIndexRef = useRef(0);
+  const isFinishingRef = useRef(false);
+  const stateRef = useRef(state);
+  const startedAtRef = useRef(startedAt);
+  const loadingRef = useRef(loading);
+  const errorRef = useRef<string | null>(null);
+  const [isFinishing, setIsFinishing] = useState(false);
+
+  // Keep refs in sync with latest state to avoid stale closures in async handlers.
+  useEffect(() => {
+    stateRef.current = state;
+  }, [state]);
+
+  useEffect(() => {
+    startedAtRef.current = startedAt;
+  }, [startedAt]);
+
+  useEffect(() => {
+    loadingRef.current = loading;
+  }, [loading]);
+
+  useEffect(() => {
+    errorRef.current = error;
+  }, [error]);
 
   useEffect(() => {
     if (state.status !== "in-progress" || startedAt === null) {
@@ -189,6 +212,8 @@ export function useInterview() {
       setStartedAt(Date.now());
       resumeInterviewQuestionsRef.current = options?.resumeQuestions ?? [];
       resumeInterviewIndexRef.current = 0;
+      isFinishingRef.current = false;
+      setIsFinishing(false);
       setState({
         ...initialInterviewState,
         config,
@@ -338,7 +363,8 @@ export function useInterview() {
   );
 
   const generateFeedback = useCallback(async (): Promise<InterviewFeedback | null> => {
-    if (!state.config || state.answers.length === 0 || loading) {
+    const currentState = stateRef.current;
+    if (!currentState.config) {
       return null;
     }
 
@@ -348,10 +374,10 @@ export function useInterview() {
     try {
       const feedback = await postInterviewApi<InterviewFeedback>({
         action: "feedback",
-        role: state.config.role,
-        interviewType: state.config.interviewType,
-        difficulty: state.config.difficulty,
-        evaluations: state.answers,
+        role: currentState.config.role,
+        interviewType: currentState.config.interviewType,
+        difficulty: currentState.config.difficulty,
+        evaluations: currentState.answers,
       });
 
       setState((previous) => ({
@@ -373,7 +399,7 @@ export function useInterview() {
     } finally {
       setLoading(false);
     }
-  }, [loading, state.answers, state.config]);
+  }, []);
 
   const saveInterview = useCallback(
     async (feedbackOverride?: InterviewFeedback | null): Promise<boolean> => {
@@ -382,11 +408,13 @@ export function useInterview() {
       // generateFeedback() — React state updates are async, so the setState
       // in generateFeedback hasn't triggered a re-render yet and the
       // state.feedback closure value is still null.
-      const feedback = feedbackOverride ?? state.feedback;
+      const currentState = stateRef.current;
+      const currentStartedAt = startedAtRef.current;
+      const feedback = feedbackOverride ?? currentState.feedback;
 
-      if (!state.config || !feedback) {
+      if (!currentState.config || !feedback) {
         console.error("[saveInterview] Aborted: missing config or feedback", {
-          hasConfig: !!state.config,
+          hasConfig: !!currentState.config,
           hasFeedback: !!feedback,
           usedOverride: feedbackOverride !== undefined,
         });
@@ -411,53 +439,104 @@ export function useInterview() {
 
         const savePayload = {
           action: "save",
-          role: state.config.role,
-          interviewType: state.config.interviewType,
-          difficulty: state.config.difficulty,
-          answers: state.answers,
+          role: currentState.config.role,
+          interviewType: currentState.config.interviewType,
+          difficulty: currentState.config.difficulty,
+          answers: currentState.answers,
           score: feedback.overallScore,
           feedback: feedback,
-          durationSeconds: state.duration,
-          startedAt: startedAt ? new Date(startedAt).toISOString() : null,
+          durationSeconds: currentState.duration,
+          startedAt: currentStartedAt ? new Date(currentStartedAt).toISOString() : null,
         };
 
-      console.log("[saveInterview] Sending save request:", {
-        userId: session.user?.id ?? null,
-        role: savePayload.role,
-        interviewType: savePayload.interviewType,
-        difficulty: savePayload.difficulty,
-        overallScore: savePayload.score,
-        answerCount: savePayload.answers.length,
-        durationSeconds: savePayload.durationSeconds,
-        startedAt: savePayload.startedAt,
-      });
+        console.log("[saveInterview] Sending save request:", {
+          userId: session.user?.id ?? null,
+          role: savePayload.role,
+          interviewType: savePayload.interviewType,
+          difficulty: savePayload.difficulty,
+          overallScore: savePayload.score,
+          answerCount: savePayload.answers.length,
+          durationSeconds: savePayload.durationSeconds,
+          startedAt: savePayload.startedAt,
+        });
 
-      const result = await postInterviewApi<{ success: boolean; interview?: { id: string } }>(
-        savePayload,
-        session.access_token
-      );
+        const result = await postInterviewApi<{ success: boolean; interview?: { id: string } }>(
+          savePayload,
+          session.access_token
+        );
 
-      console.log("[saveInterview] Save API response:", {
-        success: result.success,
-        interviewId: result.interview?.id ?? null,
-      });
+        console.log("[saveInterview] Save API response:", {
+          success: result.success,
+          interviewId: result.interview?.id ?? null,
+        });
 
-      return true;
-    } catch (requestError: unknown) {
-      const message = getErrorMessage(
-        requestError,
-        "Failed to save this interview."
-      );
-      console.error("[saveInterview] Save request failed:", {
-        message,
-        error: requestError instanceof Error ? requestError.message : String(requestError),
-      });
-      setError(message);
-      return false;
-    } finally {
-      setLoading(false);
+        return true;
+      } catch (requestError: unknown) {
+        const message = getErrorMessage(
+          requestError,
+          "Failed to save this interview."
+        );
+        console.error("[saveInterview] Save request failed:", {
+          message,
+          error: requestError instanceof Error ? requestError.message : String(requestError),
+        });
+        setError(message);
+        return false;
+      } finally {
+        setLoading(false);
+      }
+    },
+    []
+  );
+
+  const finishInterview = useCallback(async (): Promise<{
+    success: boolean;
+    feedback: InterviewFeedback | null;
+    error: string | null;
+  }> => {
+    if (isFinishingRef.current) {
+      return {
+        success: false,
+        feedback: null,
+        error: "Interview is already finishing.",
+      };
     }
-  }, [state.answers, state.config, state.duration, state.feedback, startedAt]);
+
+    isFinishingRef.current = true;
+    setIsFinishing(true);
+
+    try {
+      const feedback = await generateFeedback();
+      if (!feedback) {
+        return {
+          success: false,
+          feedback: null,
+          error:
+            errorRef.current || "Failed to generate feedback. Please try again.",
+        };
+      }
+
+      const success = await saveInterview(feedback);
+      if (!success) {
+        return {
+          success: false,
+          feedback,
+          error:
+            errorRef.current || "Failed to save interview. Please try again.",
+        };
+      }
+
+      return { success: true, feedback, error: null };
+    } finally {
+      isFinishingRef.current = false;
+      setIsFinishing(false);
+    }
+  }, [generateFeedback, saveInterview]);
+
+  const resetFinishing = useCallback(() => {
+    isFinishingRef.current = false;
+    setIsFinishing(false);
+  }, []);
 
   const endInterview = useCallback(() => {
     setState((previous) => ({
@@ -471,6 +550,8 @@ export function useInterview() {
     setError(null);
     setLoading(false);
     setStartedAt(null);
+    isFinishingRef.current = false;
+    setIsFinishing(false);
     setState(initialInterviewState);
   }, []);
 
@@ -493,10 +574,13 @@ export function useInterview() {
     submitAnswer,
     generateFeedback,
     saveInterview,
+    finishInterview,
+    resetFinishing,
     endInterview,
     resetInterview,
     addToTranscript,
     loading,
     error,
+    isFinishing,
   };
 }

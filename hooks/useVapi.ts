@@ -161,6 +161,8 @@ export function useVapi({ enabled = true, ...options }: UseVapiOptions = {}) {
   const [isInitialized, setIsInitialized] = useState(false);
   const vapiRef = useRef<Vapi | null>(null);
   const optionsRef = useRef(options);
+  const callEndedRef = useRef(false);
+  const callStartedRef = useRef(false);
 
   useEffect(() => {
     optionsRef.current = options;
@@ -199,6 +201,8 @@ export function useVapi({ enabled = true, ...options }: UseVapiOptions = {}) {
     vapiRef.current = vapi;
 
     const handleCallStart = () => {
+      callStartedRef.current = true;
+      callEndedRef.current = false;
       setCallStatus((previous) => ({
         ...previous,
         status: "connected",
@@ -229,6 +233,10 @@ export function useVapi({ enabled = true, ...options }: UseVapiOptions = {}) {
       }
     };
     const handleCallEnd = () => {
+      if (callEndedRef.current) {
+        return;
+      }
+      callEndedRef.current = true;
       setCallStatus((previous) => ({
         ...previous,
         status: "ended",
@@ -254,6 +262,8 @@ export function useVapi({ enabled = true, ...options }: UseVapiOptions = {}) {
       void vapi.stop().catch(() => undefined);
       vapiRef.current = null;
       setIsInitialized(false);
+      callEndedRef.current = false;
+      callStartedRef.current = false;
     };
   }, [enabled, reportError]);
 
@@ -288,6 +298,8 @@ export function useVapi({ enabled = true, ...options }: UseVapiOptions = {}) {
         );
       }
 
+      callStartedRef.current = true;
+      callEndedRef.current = false;
       return true;
     } catch (error: unknown) {
       reportError(error);

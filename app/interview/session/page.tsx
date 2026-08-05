@@ -15,6 +15,13 @@ import type { InterviewConfig, Difficulty } from "@/types";
 
 const RESUME_INTERVIEW_STORAGE_KEY = "aegis_resume_interview";
 
+const FINISH_STAGE_LABELS: Record<string, string> = {
+  saving: "Saving interview...",
+  feedback: "Generating feedback...",
+  "saving-feedback": "Saving feedback...",
+  redirecting: "Redirecting...",
+};
+
 function LoadingFallback() {
   return (
     <div className="flex min-h-screen items-center justify-center bg-[#020817]">
@@ -49,10 +56,15 @@ function SessionContent() {
   const [vapiErrorMsg, setVapiErrorMsg] = useState<string | null>(null);
   const [timeRemaining, setTimeRemaining] = useState(20 * 60);
   const [selectedDurationMinutes, setSelectedDurationMinutes] = useState(20);
+  const [finishStage, setFinishStage] = useState<string | null>(null);
   const [resumeQuestions, setResumeQuestions] = useState<Array<{ id?: string; question: string; type?: string; focus?: string }>>([]);
   const MAX_QUESTIONS = 5;
-  const finishInterviewRef = useRef<() => void>(() => {});
+  const finishInterviewRef = useRef<() => Promise<boolean>>(async () => false);
   const autoFinishTriggeredRef = useRef(false);
+  const isFinishingRef = useRef(false);
+  const finishCompletedRef = useRef(false);
+  const endTimestampRef = useRef<number | null>(null);
+  const redirectTimeoutRef = useRef<number | null>(null);
 
   const handleTranscriptUpdate = useCallback(
     (transcript: string) => {
@@ -64,7 +76,7 @@ function SessionContent() {
   const vapi = useVapi({
     onTranscriptUpdate: handleTranscriptUpdate,
     onCallEnded: () => {
-      finishInterviewRef.current();
+      void finishInterviewRef.current();
     },
     onError: (error) => {
       console.error("Vapi call error:", error);
@@ -81,37 +93,72 @@ function SessionContent() {
   const hasUrlConfig = !!(roleParam && difficultyParam && interviewTypeParam);
   const voiceMode = modeParam === "voice";
 
-  const handleFinishInterview = useCallback(async () => {
-    if (interview.state.status === "completed") {
-      return;
+  const handleFinishInterview = useCallback(async (): Promise<boolean> => {
+    if (isFinishingRef.current || finishCompletedRef.current) {
+      return false;
     }
-
-    setSaveError(null);
-
-    const feedback = await interview.generateFeedback();
-    if (!feedback) {
-      setSaveError(interview.error || "Failed to generate feedback. Please try again.");
-      return;
-    }
-
+    isFinishingRef.current = true;
     setSaving(true);
-    const success = await interview.saveInterview(feedback);
-    setSaving(false);
+    setSaveError(null);
+    setFinishStage("saving");
 
-    if (success) {
+    try {
+      // Stop the voice call if in voice mode (fire-and-forget, errors swallowed).
+      if (voiceMode) {
+        void vapi.endCall().catch(() => undefined);
+      }
+
+      const result = await interview.finishInterview();
+      if (!result.success) {
+        setSaveError(result.error || "Failed to complete the interview. Please try again.");
+        setFinishStage(null);
+        return false;
+      }
+
+      finishCompletedRef.current = true;
       setSaved(true);
-      setSaveError(null);
-      setTimeout(() => {
+      setFinishStage("redirecting");
+
+      // Clean up any previously scheduled redirect then schedule a new one.
+      if (redirectTimeoutRef.current) {
+        window.clearTimeout(redirectTimeoutRef.current);
+      }
+      redirectTimeoutRef.current = window.setTimeout(() => {
+        router.refresh();
         router.push("/dashboard");
       }, 1500);
-    } else {
-      setSaveError(interview.error || "Failed to save interview. Please try again.");
+
+      return true;
+    } catch (error: unknown) {
+      // Any unexpected error must not leave the flow stuck. Surface it and
+      // allow the user to retry safely.
+      const message =
+        error instanceof Error && error.message
+          ? error.message
+          : "Failed to complete the interview. Please try again.";
+      console.error("Finish interview failed:", message);
+      setSaveError(message);
+      setFinishStage(null);
+      return false;
+    } finally {
+      isFinishingRef.current = false;
+      setSaving(false);
+      setFinishStage(null);
     }
-  }, [interview, router]);
+  }, [interview, router, voiceMode, vapi]);
 
   useEffect(() => {
     finishInterviewRef.current = handleFinishInterview;
   }, [handleFinishInterview]);
+
+  // Cleanup redirect timeout on unmount.
+  useEffect(() => {
+    return () => {
+      if (redirectTimeoutRef.current) {
+        window.clearTimeout(redirectTimeoutRef.current);
+      }
+    };
+  }, []);
 
   const handleStartInterview = useCallback(
     async (config: InterviewConfig) => {
@@ -120,11 +167,15 @@ function SessionContent() {
         Math.min(120, Number(config.durationMinutes ?? (Number(durationParam) || 20)))
       );
       setSelectedDurationMinutes(normalizedDurationMinutes);
+      endTimestampRef.current = Date.now() + normalizedDurationMinutes * 60 * 1000;
       setTimeRemaining(normalizedDurationMinutes * 60);
       autoFinishTriggeredRef.current = false;
+      isFinishingRef.current = false;
+      finishCompletedRef.current = false;
       setQuestionCount(0);
       setSaved(false);
       setSaveError(null);
+      setFinishStage(null);
       await interview.startInterview(
         { ...config, durationMinutes: normalizedDurationMinutes },
         resumeInterviewParam ? { resumeQuestions } : undefined
@@ -188,24 +239,40 @@ function SessionContent() {
     setStartupConfig(null);
   }, [handleStartInterview, startupConfig]);
 
+  // Timestamp-based countdown with drift resistance and visibility recalculation.
   useEffect(() => {
-    if (interview.state.status !== "in-progress") {
+    if (interview.state.status !== "in-progress" || endTimestampRef.current === null) {
       return;
     }
 
-    const interval = window.setInterval(() => {
-      setTimeRemaining((previous) => {
-        if (previous <= 1) {
-          window.clearInterval(interval);
-          return 0;
-        }
-        return previous - 1;
-      });
-    }, 1000);
+    const updateTimer = () => {
+      if (endTimestampRef.current === null) {
+        return;
+      }
+      const remaining = Math.max(
+        0,
+        Math.round((endTimestampRef.current - Date.now()) / 1000)
+      );
+      setTimeRemaining(remaining);
+    };
 
-    return () => window.clearInterval(interval);
+    updateTimer();
+    const interval = window.setInterval(updateTimer, 1000);
+
+    const handleVisibility = () => {
+      if (document.visibilityState === "visible") {
+        updateTimer();
+      }
+    };
+    document.addEventListener("visibilitychange", handleVisibility);
+
+    return () => {
+      window.clearInterval(interval);
+      document.removeEventListener("visibilitychange", handleVisibility);
+    };
   }, [interview.state.status]);
 
+  // Auto-finish when the timer reaches zero — executes only once, resets on failure.
   useEffect(() => {
     if (
       interview.state.status === "in-progress" &&
@@ -213,7 +280,11 @@ function SessionContent() {
       !autoFinishTriggeredRef.current
     ) {
       autoFinishTriggeredRef.current = true;
-      void handleFinishInterview();
+      void handleFinishInterview().then((completed) => {
+        if (!completed) {
+          autoFinishTriggeredRef.current = false;
+        }
+      });
     }
   }, [handleFinishInterview, interview.state.status, timeRemaining]);
 
@@ -226,6 +297,9 @@ function SessionContent() {
   );
 
   const handleNextQuestion = useCallback(async () => {
+    if (isFinishingRef.current) {
+      return;
+    }
     const nextCount = questionCount + 1;
     setQuestionCount(nextCount);
     if (nextCount >= MAX_QUESTIONS) {
@@ -244,12 +318,15 @@ function SessionContent() {
   }, [vapi, interview]);
 
   const handleVoiceEndCall = useCallback(async () => {
+    // vapi.endCall() will trigger the `call-end` event → onCallEnded → finishInterviewRef.current().
+    // The isFinishingRef guard inside handleFinishInterview prevents double execution.
     await vapi.endCall();
     await handleFinishInterview();
   }, [vapi, handleFinishInterview]);
 
   const progressValue = ((questionCount + 1) / MAX_QUESTIONS) * 100;
   const timerPercent = (timeRemaining / (selectedDurationMinutes * 60)) * 100;
+  const isFinishing = isFinishingRef.current || interview.isFinishing;
 
   if (interview.state.status === "completed" && interview.state.feedback) {
     return (
@@ -323,6 +400,27 @@ function SessionContent() {
     <ProtectedRoute>
       <main className="min-h-screen overflow-x-hidden bg-[#020817] px-3 pb-20 pt-24 text-white sm:px-5 lg:px-6">
         <div className="mx-auto flex min-h-[calc(100vh-8rem)] w-full max-w-7xl flex-col">
+          {isFinishing && finishStage && (
+            <div className="mb-4 flex items-center gap-3 rounded-xl border border-blue-500/30 bg-blue-500/10 p-3 text-sm text-blue-300">
+              <Loader2 size={18} className="animate-spin" />
+              <span>{FINISH_STAGE_LABELS[finishStage] ?? "Completing interview..."}</span>
+            </div>
+          )}
+          {saveError && !saved && (
+            <div className="mb-4 flex flex-col items-center gap-3 rounded-xl border border-red-500/30 bg-red-500/10 p-4 text-center text-sm text-red-400 sm:flex-row sm:justify-between">
+              <div className="flex items-center gap-2">
+                <AlertTriangle size={16} />
+                <span>{saveError}</span>
+              </div>
+              <button
+                onClick={() => void handleFinishInterview()}
+                disabled={saving}
+                className="rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-2 text-xs font-semibold text-red-400 transition-all hover:bg-red-500/20 disabled:opacity-50"
+              >
+                {saving ? "Retrying..." : "Retry"}
+              </button>
+            </div>
+          )}
           <div className="mb-4 flex flex-col gap-3 rounded-2xl border border-slate-800 bg-slate-900/70 p-4 shadow-lg shadow-slate-950/20 backdrop-blur-xl lg:flex-row lg:items-center lg:justify-between">
             <div className="flex min-w-0 items-center gap-3">
               <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-blue-500 to-cyan-500">
@@ -362,10 +460,15 @@ function SessionContent() {
               </div>
               <button
                 onClick={() => void handleFinishInterview()}
-                className="inline-flex items-center gap-2 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-2 text-sm font-semibold text-red-400 transition-all duration-300 hover:bg-red-500/20"
+                disabled={isFinishing}
+                className="inline-flex items-center gap-2 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-2 text-sm font-semibold text-red-400 transition-all duration-300 hover:bg-red-500/20 disabled:cursor-not-allowed disabled:opacity-50"
               >
-                <Clock3 size={16} />
-                Finish
+                {isFinishing ? (
+                  <Loader2 size={16} className="animate-spin" />
+                ) : (
+                  <Clock3 size={16} />
+                )}
+                {isFinishing ? "Finishing..." : "Finish"}
               </button>
             </div>
           </div>
@@ -387,7 +490,7 @@ function SessionContent() {
                     onStartCall={handleVoiceStartCall}
                     onEndCall={handleVoiceEndCall}
                     onToggleMute={vapi.toggleMute}
-                    disabled={interview.state.status !== "in-progress"}
+                    disabled={interview.state.status !== "in-progress" || isFinishing}
                   />
                   {vapi.callStatus.transcript && (
                     <div className="mt-4">
