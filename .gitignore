@@ -43,3 +43,6 @@ next-env.d.ts
 # supabase cli binaries
 supabase-cli/
 supabase-cli.zip
+supabase/.temp/
+supabase/.branches/
+supabase/.cache/supabase-cli.zip
