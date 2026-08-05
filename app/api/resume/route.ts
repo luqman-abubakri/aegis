@@ -33,52 +33,14 @@ function jsonError(error: string, status: number) {
 }
 
 async function extractPdfText(buffer: Buffer): Promise<string> {
-  let parser: {
-    getText(): Promise<{ text: string }>;
-    destroy(): Promise<void>;
-  } | null = null;
-
   try {
     console.log("STEP 6: Starting PDF parse");
 
-    // pdf-parse v2 exports a named class `PDFParse` (not a default-exported function).
-    // Resolve it robustly across the installed package's export shape:
-    //   1. named export `PDFParse`
-    //   2. named export `pdfParse`
-    //   3. default export
-    //   4. callable module itself (v1-style)
-    const pdfParseModule = (await import("pdf-parse")) as {
-      PDFParse?: new (options: { data: Buffer | Uint8Array }) => {
-        getText(): Promise<{ text: string }>;
-        destroy(): Promise<void>;
-      };
-      pdfParse?: new (options: { data: Buffer | Uint8Array }) => {
-        getText(): Promise<{ text: string }>;
-        destroy(): Promise<void>;
-      };
-      default?: unknown;
-    };
+    // pdf-parse v1 exports a default-exported function (CommonJS).
+    const pdfParse = (await import("pdf-parse")).default;
 
-    const PDFParseClass =
-      pdfParseModule.PDFParse ??
-      pdfParseModule.pdfParse ??
-      (typeof pdfParseModule.default === "function" &&
-      (pdfParseModule.default as { name?: string }).name === "PDFParse"
-        ? (pdfParseModule.default as new (options: { data: Buffer | Uint8Array }) => {
-            getText(): Promise<{ text: string }>;
-            destroy(): Promise<void>;
-          })
-        : undefined);
+    const parsed = await pdfParse(buffer);
 
-    if (typeof PDFParseClass !== "function") {
-      throw new Error(
-        "The PDF parser could not be loaded. The installed pdf-parse package does not expose a compatible PDFParse class."
-      );
-    }
-
-    parser = new PDFParseClass({ data: buffer });
-
-    const parsed = await parser.getText();
     const extractedText = parsed.text?.trim() ?? "";
     console.log("STEP 7: PDF parsed", {
       extractedCharacters: extractedText.length,
@@ -95,15 +57,6 @@ async function extractPdfText(buffer: Buffer): Promise<string> {
     console.dir(error, { depth: null });
     console.error("===============================");
     throw error;
-  } finally {
-    // Always release the underlying PDF.js document/worker resources.
-    if (parser) {
-      try {
-        await parser.destroy();
-      } catch (destroyError) {
-        console.error("Failed to destroy the PDF parser:", destroyError);
-      }
-    }
   }
 }
 
