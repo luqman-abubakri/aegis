@@ -17,6 +17,7 @@ export interface InterviewConfig {
   difficulty: Difficulty;
   mode: InterviewMode;
   durationMinutes?: number;
+  totalQuestions: number;
 }
 
 export interface ResumeAnalysis {

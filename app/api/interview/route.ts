@@ -5,6 +5,10 @@ import {
   generateInterviewQuestion,
 } from "@/lib/grok";
 import { createAuthenticatedSupabaseClient } from "@/lib/supabase";
+import {
+  buildIncompleteFeedback,
+  resolveInterviewStatus,
+} from "@/lib/incompleteFeedback";
 import type {
   AnswerEvaluation,
   Difficulty,
@@ -243,6 +247,11 @@ async function handleEvaluate(body: RequestBody) {
   }
 }
 
+function getPositiveInt(value: unknown): number {
+  const parsed = typeof value === "number" ? value : Number(value);
+  return Number.isFinite(parsed) ? Math.max(0, Math.round(parsed)) : 0;
+}
+
 async function handleFeedback(body: RequestBody) {
   const config = getInterviewConfig(body);
   const evaluations = parseEvaluations(body.evaluations);
@@ -255,8 +264,27 @@ async function handleFeedback(body: RequestBody) {
     return jsonError("The evaluations payload must be an array", 400);
   }
 
+  const answeredQuestions = evaluations.length;
+  const totalQuestionsRaw = getPositiveInt(body.totalQuestions);
+  const totalQuestions =
+    totalQuestionsRaw > 0 ? totalQuestionsRaw : answeredQuestions;
+
+  // Server guard: even if a malicious client bypasses the frontend, a
+  // completely unattempted interview must NEVER reach the AI. Return the
+  // deterministic feedback immediately — no Groq call, no fabricated data.
+  if (answeredQuestions === 0 || evaluations.length === 0) {
+    return NextResponse.json(
+      buildIncompleteFeedback(totalQuestions, answeredQuestions)
+    );
+  }
+
   try {
-    const feedback = await generateFinalFeedback({ ...config, evaluations });
+    const feedback = await generateFinalFeedback({
+      ...config,
+      evaluations,
+      totalQuestions,
+      answeredQuestions,
+    });
     return NextResponse.json(feedback);
   } catch (error: unknown) {
     const message = getErrorMessage(error, "Failed to generate feedback");
@@ -320,12 +348,18 @@ async function handleSave(request: Request, body: RequestBody) {
     ? new Date(startedAtRaw).toISOString()
     : completedAt;
 
+  const answeredQuestions = evaluations.length;
+  const totalQuestionsRaw = getPositiveInt(body.totalQuestions);
+  const totalQuestions =
+    totalQuestionsRaw > 0 ? totalQuestionsRaw : feedback.totalQuestions;
+  const status = resolveInterviewStatus(answeredQuestions, totalQuestions);
+
   const interviewPayload = {
     user_id: user.id,
     role: config.role,
     difficulty: config.difficulty,
     interview_type: config.interviewType,
-    status: "completed",
+    status,
     score: feedback.overallScore,
     feedback,
     duration_seconds: durationSeconds,

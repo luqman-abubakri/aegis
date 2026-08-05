@@ -66,7 +66,7 @@ export function InterviewSetup({
     const hours = Math.floor(durationMinutes / 60);
     const remainingMinutes = durationMinutes % 60;
     return remainingMinutes > 0 ? `${hours}h ${remainingMinutes}m` : `${hours}h`;
-  }, [durationMinutes]);
+}, [durationMinutes]);
 
   const handleStart = () => {
     if (!ready) return;
@@ -76,6 +76,7 @@ export function InterviewSetup({
       difficulty: difficulty as Difficulty,
       mode,
       durationMinutes,
+      totalQuestions: 5,
     });
   };
 

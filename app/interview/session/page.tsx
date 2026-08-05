@@ -176,8 +176,12 @@ function SessionContent() {
       setSaved(false);
       setSaveError(null);
       setFinishStage(null);
-      await interview.startInterview(
-        { ...config, durationMinutes: normalizedDurationMinutes },
+await interview.startInterview(
+        {
+          ...config,
+          durationMinutes: normalizedDurationMinutes,
+          totalQuestions: MAX_QUESTIONS,
+        },
         resumeInterviewParam ? { resumeQuestions } : undefined
       );
     },
@@ -225,6 +229,7 @@ function SessionContent() {
       difficulty: difficultyParam as Difficulty,
       mode: modeParam === "voice" ? "voice" : "text",
       durationMinutes: Number(durationParam) || 20,
+      totalQuestions: MAX_QUESTIONS,
     };
 
     setStartupConfig(nextConfig);

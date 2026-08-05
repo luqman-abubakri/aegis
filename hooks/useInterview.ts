@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { supabase } from "@/lib/supabase";
+import { buildIncompleteFeedback } from "@/lib/incompleteFeedback";
 import type {
   AnswerEvaluation,
   InterviewConfig,
@@ -358,7 +359,7 @@ export function useInterview() {
       } finally {
         setLoading(false);
       }
-    },
+},
     [loading, state.config, state.currentQuestion]
   );
 
@@ -366,6 +367,29 @@ export function useInterview() {
     const currentState = stateRef.current;
     if (!currentState.config) {
       return null;
+    }
+
+const answeredQuestions = currentState.answers.length;
+    const totalQuestions =
+      currentState.config.totalQuestions > 0
+        ? currentState.config.totalQuestions
+        : currentState.questions.length;
+
+    // Client guard: a completely unattempted interview must NEVER reach the
+    // AI. Return deterministic feedback immediately — no /api/interview call,
+    // no Groq call, no waiting.
+    if (answeredQuestions === 0) {
+      const feedback = buildIncompleteFeedback(
+        totalQuestions,
+        answeredQuestions
+      );
+      setState((previous) => ({
+        ...previous,
+        feedback,
+        status: "completed",
+        currentQuestion: null,
+      }));
+      return feedback;
     }
 
     setError(null);
@@ -378,6 +402,8 @@ export function useInterview() {
         interviewType: currentState.config.interviewType,
         difficulty: currentState.config.difficulty,
         evaluations: currentState.answers,
+        totalQuestions,
+        answeredQuestions,
       });
 
       setState((previous) => ({
@@ -408,7 +434,7 @@ export function useInterview() {
       // generateFeedback() — React state updates are async, so the setState
       // in generateFeedback hasn't triggered a re-render yet and the
       // state.feedback closure value is still null.
-      const currentState = stateRef.current;
+const currentState = stateRef.current;
       const currentStartedAt = startedAtRef.current;
       const feedback = feedbackOverride ?? currentState.feedback;
 
@@ -420,6 +446,11 @@ export function useInterview() {
         });
         return false;
       }
+
+      const totalQuestions =
+        currentState.config.totalQuestions > 0
+          ? currentState.config.totalQuestions
+          : currentState.questions.length;
 
       setError(null);
       setLoading(true);
@@ -445,6 +476,7 @@ export function useInterview() {
           answers: currentState.answers,
           score: feedback.overallScore,
           feedback: feedback,
+          totalQuestions,
           durationSeconds: currentState.duration,
           startedAt: currentStartedAt ? new Date(currentStartedAt).toISOString() : null,
         };

@@ -555,7 +555,7 @@ export default function ResumePage() {
 
   return (
     <ProtectedRoute>
-      <main className="min-h-screen bg-[#020817] pt-28 pb-20 text-white">
+      <main className="min-h-screen overflow-x-hidden bg-[#020817] pt-28 pb-20 text-white">
         <div className="mx-auto max-w-4xl px-5 sm:px-6 lg:px-8">
           <Link
             href="/dashboard"
@@ -571,7 +571,7 @@ export default function ResumePage() {
               <FileText size={16} />
               Resume Analysis
             </div>
-            <h1 className="text-4xl font-black md:text-5xl">
+            <h1 className="text-3xl font-black sm:text-4xl md:text-5xl">
               Upload Your{" "}
               <span className="bg-gradient-to-r from-violet-400 to-fuchsia-400 bg-clip-text text-transparent">
                 Resume
@@ -602,7 +602,7 @@ export default function ResumePage() {
             onDrop={handleDrop}
             onDragOver={handleDragOver}
             onDragLeave={handleDragLeave}
-            className={`mb-10 rounded-3xl border-2 border-dashed p-12 text-center transition-all duration-300 ${
+            className={`mb-10 rounded-3xl border-2 border-dashed p-6 text-center transition-all duration-300 sm:p-8 lg:p-12 ${
               dragActive
                 ? "border-violet-500 bg-violet-500/10"
                 : "border-slate-700 bg-slate-900/60 hover:border-violet-500/50"
@@ -667,9 +667,9 @@ export default function ResumePage() {
           </div>
 
           {activeResumeId && (
-            <div className="mb-8 rounded-3xl border border-slate-800 bg-slate-900/70 p-6 shadow-lg shadow-slate-950/20 backdrop-blur-xl">
+            <div className="mb-8 min-w-0 overflow-hidden rounded-3xl border border-slate-800 bg-slate-900/70 p-6 shadow-lg shadow-slate-950/20 backdrop-blur-xl">
               <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-                <div>
+                <div className="min-w-0">
                   <p className="text-sm font-semibold text-violet-300">Resume Analysis Pipeline</p>
                   <p className="text-sm text-slate-400">Uploading, extracting text, analyzing, and generating your interview.</p>
                 </div>
@@ -736,8 +736,8 @@ export default function ResumePage() {
                         <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-xl bg-violet-500/10 text-violet-400">
                           <FileCheck2 size={24} />
                         </div>
-                        <div className="min-w-0">
-                          <p className="font-semibold text-white">{resume.file_name || "Untitled"}</p>
+                        <div className="min-w-0 flex-1">
+                          <p className="break-words font-semibold text-white">{resume.file_name || "Untitled"}</p>
                           <div className="mt-1 flex flex-wrap items-center gap-3 text-xs text-slate-400">
                             {resume.file_size && <span>{formatBytes(resume.file_size)}</span>}
                             <span>
@@ -766,12 +766,12 @@ export default function ResumePage() {
                         </div>
                       </div>
 
-                      <div className="flex flex-wrap gap-2">
+                      <div className="flex w-full flex-wrap gap-2 sm:w-auto">
                         {hasAnalysis ? (
                           <button
                             onClick={() => goToResumeInterview(resume)}
                             disabled={analyzing || deleting || uploading}
-                            className="inline-flex items-center justify-center gap-2 rounded-xl border border-violet-500/20 bg-violet-500/10 px-4 py-2 text-sm font-semibold text-violet-200 transition-all duration-300 hover:bg-violet-500/20 disabled:cursor-not-allowed disabled:opacity-50"
+                            className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-violet-500/20 bg-violet-500/10 px-4 py-2 text-sm font-semibold text-violet-200 transition-all duration-300 hover:bg-violet-500/20 disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"
                           >
                             <PlayCircle size={16} />
                             Resume Interview
@@ -780,7 +780,7 @@ export default function ResumePage() {
                           <button
                             onClick={() => void handleAnalyze(resume)}
                             disabled={analyzing || deleting || uploading}
-                            className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-700 bg-slate-800/70 px-4 py-2 text-sm font-semibold text-slate-200 transition-all duration-300 hover:border-violet-500/50 disabled:cursor-not-allowed disabled:opacity-50"
+                            className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-slate-700 bg-slate-800/70 px-4 py-2 text-sm font-semibold text-slate-200 transition-all duration-300 hover:border-violet-500/50 disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"
                           >
                             {analyzing ? (
                               <>
@@ -798,7 +798,7 @@ export default function ResumePage() {
                         <button
                           onClick={() => setResumeToDelete(resume)}
                           disabled={analyzing || deleting || uploading}
-                          className="inline-flex items-center justify-center gap-2 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-2 text-sm font-semibold text-red-400 transition-all duration-300 hover:bg-red-500/20 disabled:cursor-not-allowed disabled:opacity-50"
+                          className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-2 text-sm font-semibold text-red-400 transition-all duration-300 hover:bg-red-500/20 disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"
                         >
                           <Trash2 size={16} />
                           Delete

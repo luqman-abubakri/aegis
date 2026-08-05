@@ -85,13 +85,40 @@ function buildFeedbackPrompt(params: {
   interviewType: InterviewType;
   difficulty: Difficulty;
   evaluations: AnswerEvaluation[];
+  totalQuestions?: number;
+  answeredQuestions?: number;
 }): string {
+  const totalQuestions = params.totalQuestions ?? params.evaluations.length;
+  const answeredQuestions = params.answeredQuestions ?? params.evaluations.length;
+  const skippedQuestions = Math.max(0, totalQuestions - answeredQuestions);
+
   const evaluationsText = params.evaluations
     .map(
       (e, i) =>
         `Q${i + 1}: ${e.question}\nScore: ${e.score}\nStrengths: ${e.strengths.join(", ")}\nWeaknesses: ${e.weaknesses.join(", ")}`
     )
     .join("\n\n");
+
+  const completionBlock =
+    skippedQuestions > 0
+      ? `
+================================================
+Interview Completion
+Questions Answered: ${answeredQuestions}
+Total Questions: ${totalQuestions}
+Skipped Questions: ${skippedQuestions}
+
+IMPORTANT RULES
+- The interview was NOT fully completed. Some questions were skipped.
+- Never assume answers that do not exist.
+- Never fabricate strengths.
+- Never invent technical knowledge.
+- Only evaluate the submitted answers shown above.
+- State clearly that the interview was incomplete and some questions were skipped.
+- Confidence should decrease accordingly.
+- Overall score must reflect the incomplete participation and must NOT be a passing/high score.
+================================================`
+      : "";
 
   return `Generate comprehensive final feedback for this interview.
 
@@ -101,6 +128,7 @@ Difficulty: ${params.difficulty}
 
 Questions and Evaluations:
 ${evaluationsText}
+${completionBlock}
 
 Provide a JSON with the following structure:
 {
@@ -260,16 +288,55 @@ export async function generateFinalFeedback(params: {
   interviewType: InterviewType;
   difficulty: Difficulty;
   evaluations: AnswerEvaluation[];
+  totalQuestions?: number;
+  answeredQuestions?: number;
 }): Promise<InterviewFeedback> {
+  const totalQuestions = params.totalQuestions ?? params.evaluations.length;
+  const answeredQuestions = params.answeredQuestions ?? params.evaluations.length;
+
+  // Zero-answer guard: never let the AI fabricate an evaluation for an
+  // interview that was never attempted. Return deterministic feedback.
+  if (answeredQuestions <= 0 || params.evaluations.length === 0) {
+    return {
+      overallScore: 0,
+      totalQuestions,
+      answeredQuestions: 0,
+      strengths: [],
+      areasForImprovement: [
+        "Complete the interview before requesting feedback",
+        "Answer every interview question",
+        "Explain your reasoning clearly",
+        "Practice technical communication",
+      ],
+      summary:
+        "No meaningful assessment could be generated because no interview questions were answered.",
+      questionEvaluations: [],
+    };
+  }
+
   try {
-    const prompt = buildFeedbackPrompt(params);
+    const prompt = buildFeedbackPrompt({
+      ...params,
+      totalQuestions,
+      answeredQuestions,
+    });
     const text = await groqCompletion(prompt);
     const parsed = parseJSON(text);
 
+    let overallScore = readScore(parsed.overallScore);
+
+    // Partial-interview score cap: when some questions were skipped, the AI
+    // may only evaluate submitted answers and must never award a high score
+    // for minimal participation. Cap at 60 to prevent a single answer from
+    // producing an inflated result.
+    if (answeredQuestions < totalQuestions) {
+      overallScore = Math.min(overallScore, 60);
+    }
+
     return {
-      overallScore: readScore(parsed.overallScore),
-      totalQuestions: params.evaluations.length,
-      answeredQuestions: params.evaluations.length,
+      overallScore,
+      totalQuestions,
+      answeredQuestions,
       strengths: readStringArray(parsed.strengths),
       areasForImprovement: readStringArray(parsed.areasForImprovement),
       summary: typeof parsed.summary === "string" ? parsed.summary : "",
