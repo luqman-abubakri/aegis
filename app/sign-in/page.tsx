@@ -116,18 +116,9 @@ export default function SignInPage() {
 
           {/* Password */}
           <div>
-            <div className="mb-2 flex items-center justify-between">
-              <label className="text-sm text-slate-300">
-                Password
-              </label>
-
-              <Link
-                href="/forgot-password"
-                className="text-sm text-blue-400 transition hover:text-cyan-400"
-              >
-                Forgot Password?
-              </Link>
-            </div>
+            <label className="mb-2 block text-sm text-slate-300">
+              Password
+            </label>
 
             <div className="flex items-center rounded-xl border border-slate-700 bg-slate-950 px-4 transition focus-within:border-blue-500">
               <Lock className="text-slate-500" size={20} />
