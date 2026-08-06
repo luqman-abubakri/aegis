@@ -5,10 +5,7 @@ import {
   generateInterviewQuestion,
 } from "@/lib/grok";
 import { createAuthenticatedSupabaseClient } from "@/lib/supabase";
-import {
-  buildIncompleteFeedback,
-  resolveInterviewStatus,
-} from "@/lib/incompleteFeedback";
+import { buildIncompleteFeedback } from "@/lib/incompleteFeedback";
 import type {
   AnswerEvaluation,
   Difficulty,
@@ -351,11 +348,21 @@ async function handleSave(request: Request, body: RequestBody) {
     ? new Date(startedAtRaw).toISOString()
     : completedAt;
 
-const answeredQuestions = evaluations.length;
+  const answeredQuestions = evaluations.length;
   const totalQuestionsRaw = getPositiveInt(body.totalQuestions);
   const totalQuestions =
     totalQuestionsRaw > 0 ? totalQuestionsRaw : feedback.totalQuestions;
-  const status = resolveInterviewStatus(answeredQuestions, totalQuestions);
+  // The save action represents the explicit end of an interview session
+  // (End Interview button, timer expiry, or reaching the last question).
+  // A user-initiated finish always counts as "completed" — even if some
+  // questions were skipped — so the dashboard (which aggregates only
+  // completed interviews) updates correctly. Only a completely unattempted
+  // interview (zero answers) is marked "incomplete" and excluded from the
+  // dashboard, preserving the empty-interview scoring guard.
+  const status =
+    answeredQuestions === 0 && totalQuestions > 0
+      ? "incomplete"
+      : "completed";
 
   const existingInterviewId = getString(body.interviewId);
 
