@@ -19,7 +19,7 @@ import type {
 export const runtime = "nodejs";
 
 type RequestBody = Record<string, unknown>;
-type InterviewAction = "question" | "evaluate" | "feedback" | "save";
+type InterviewAction = "question" | "evaluate" | "feedback" | "save" | "save-answer";
 
 const interviewTypes: InterviewType[] = [
   "technical",
@@ -113,7 +113,8 @@ function parseEvaluation(value: unknown): AnswerEvaluation | null {
     return null;
   }
 
-  const modelAnswer = getString(value.modelAnswer);
+const modelAnswer = getString(value.modelAnswer);
+  const coachingMessage = getString(value.coachingMessage);
 
   return {
     questionId,
@@ -123,6 +124,8 @@ function parseEvaluation(value: unknown): AnswerEvaluation | null {
     strengths: getStringArray(value.strengths),
     weaknesses: getStringArray(value.weaknesses),
     improvementSuggestions: getStringArray(value.improvementSuggestions),
+    ...(coachingMessage ? { coachingMessage } : {}),
+    ...(typeof value.followUp === "boolean" ? { followUp: value.followUp } : {}),
     ...(modelAnswer ? { modelAnswer } : {}),
   };
 }
@@ -348,53 +351,103 @@ async function handleSave(request: Request, body: RequestBody) {
     ? new Date(startedAtRaw).toISOString()
     : completedAt;
 
-  const answeredQuestions = evaluations.length;
+const answeredQuestions = evaluations.length;
   const totalQuestionsRaw = getPositiveInt(body.totalQuestions);
   const totalQuestions =
     totalQuestionsRaw > 0 ? totalQuestionsRaw : feedback.totalQuestions;
   const status = resolveInterviewStatus(answeredQuestions, totalQuestions);
 
-  const interviewPayload = {
-    user_id: user.id,
-    role: config.role,
-    difficulty: config.difficulty,
-    interview_type: config.interviewType,
-    status,
-    score: feedback.overallScore,
-    feedback,
-    duration_seconds: durationSeconds,
-    started_at: startedAt,
-    completed_at: completedAt,
-  };
+  const existingInterviewId = getString(body.interviewId);
 
-  console.log("[handleSave] Inserting interview row:", {
-    table: "interviews",
-    payload: interviewPayload,
-  });
+  let interview: { id: string } | null = null;
 
-  const { data: interview, error: interviewError } = await supabase
-    .from("interviews")
-    .insert(interviewPayload)
-    .select("id")
-    .single();
+  if (existingInterviewId) {
+    // Update the existing interview row (created incrementally via save-answer).
+    const updatePayload = {
+      status,
+      score: feedback.overallScore,
+      feedback,
+      duration_seconds: durationSeconds,
+      completed_at: completedAt,
+    };
 
-  console.log("[handleSave] Interview insert response:", {
-    data: interview,
-    error: interviewError
-      ? { message: interviewError.message, code: interviewError.code, details: interviewError.details }
-      : null,
-  });
-
-  if (interviewError) {
-    console.error("[handleSave] Interview INSERT failed:", {
-      userId: user.id,
-      error: interviewError.message,
-      code: interviewError.code,
+    console.log("[handleSave] Updating existing interview row:", {
+      table: "interviews",
+      interviewId: existingInterviewId,
+      payload: updatePayload,
     });
-    return jsonError(
-      `Failed to save interview: ${interviewError.message}`,
-      500
-    );
+
+    const { data: updated, error: updateError } = await supabase
+      .from("interviews")
+      .update(updatePayload)
+      .eq("id", existingInterviewId)
+      .eq("user_id", user.id)
+      .select("id")
+      .single();
+
+    if (updateError) {
+      console.error("[handleSave] Interview UPDATE failed:", {
+        userId: user.id,
+        interviewId: existingInterviewId,
+        error: updateError.message,
+        code: updateError.code,
+      });
+      return jsonError(
+        `Failed to update interview: ${updateError.message}`,
+        500
+      );
+    }
+
+    interview = updated;
+  } else {
+    const insertPayload = {
+      user_id: user.id,
+      role: config.role,
+      difficulty: config.difficulty,
+      interview_type: config.interviewType,
+      status,
+      score: feedback.overallScore,
+      feedback,
+      duration_seconds: durationSeconds,
+      started_at: startedAt,
+      completed_at: completedAt,
+    };
+
+    console.log("[handleSave] Inserting interview row:", {
+      table: "interviews",
+      payload: insertPayload,
+    });
+
+    const { data: inserted, error: insertError } = await supabase
+      .from("interviews")
+      .insert(insertPayload)
+      .select("id")
+      .single();
+
+    console.log("[handleSave] Interview insert response:", {
+      data: inserted,
+      error: insertError
+        ? { message: insertError.message, code: insertError.code, details: insertError.details }
+        : null,
+    });
+
+    if (insertError) {
+      console.error("[handleSave] Interview INSERT failed:", {
+        userId: user.id,
+        error: insertError.message,
+        code: insertError.code,
+      });
+      return jsonError(
+        `Failed to save interview: ${insertError.message}`,
+        500
+      );
+    }
+
+    interview = inserted;
+  }
+
+  if (!interview) {
+    return jsonError("Failed to resolve the interview row", 500);
   }
 
   const questionScores = evaluations.reduce(
@@ -459,6 +512,140 @@ async function handleSave(request: Request, body: RequestBody) {
   return NextResponse.json({ success: true, interview });
 }
 
+async function handleSaveAnswer(request: Request, body: RequestBody) {
+  const config = getInterviewConfig(body);
+  const evaluations = parseEvaluations(body.answers);
+
+  if ("error" in config) {
+    return jsonError(config.error, 400);
+  }
+
+  if (!evaluations || evaluations.length === 0) {
+    return jsonError(
+      "The answers payload must be a non-empty array of evaluations",
+      400
+    );
+  }
+
+  const accessToken = getAccessToken(request);
+  if (!accessToken) {
+    return jsonError("You must be signed in to save an interview", 401);
+  }
+
+  const supabase = createAuthenticatedSupabaseClient(accessToken);
+  const {
+    data: { user },
+    error: userError,
+  } = await supabase.auth.getUser(accessToken);
+
+  if (userError || !user) {
+    console.error("[handleSaveAnswer] Auth failed:", {
+      userError: userError?.message ?? null,
+    });
+    return jsonError("Your session has expired. Please sign in again.", 401);
+  }
+
+  const startedAtRaw =
+    typeof body.startedAt === "string" ? body.startedAt : null;
+  const startedAt = startedAtRaw
+    ? new Date(startedAtRaw).toISOString()
+    : new Date().toISOString();
+  const durationSeconds = getDurationSeconds(body.durationSeconds);
+  const totalQuestionsRaw = getPositiveInt(body.totalQuestions);
+  const totalQuestions = totalQuestionsRaw > 0 ? totalQuestionsRaw : evaluations.length;
+  const runningScore = Math.round(
+    evaluations.reduce((total, evaluation) => total + evaluation.score, 0) /
+      evaluations.length
+  );
+
+  // Build a progressively-updated feedback blob so progress is never lost.
+  const partialFeedback = {
+    overallScore: runningScore,
+    totalQuestions,
+    answeredQuestions: evaluations.length,
+    strengths: evaluations.flatMap((evaluation) => evaluation.strengths),
+    areasForImprovement: evaluations.flatMap(
+      (evaluation) => evaluation.improvementSuggestions
+    ),
+    summary: `Interview in progress — ${evaluations.length} of ${totalQuestions} questions answered so far.`,
+    questionEvaluations: evaluations,
+  };
+
+  const existingInterviewId = getString(body.interviewId);
+
+  let interview: { id: string } | null = null;
+
+  if (existingInterviewId) {
+    const updatePayload = {
+      status: "in_progress",
+      score: runningScore,
+      feedback: partialFeedback,
+      duration_seconds: durationSeconds,
+    };
+
+    const { data: updated, error: updateError } = await supabase
+      .from("interviews")
+      .update(updatePayload)
+      .eq("id", existingInterviewId)
+      .eq("user_id", user.id)
+      .select("id")
+      .single();
+
+    if (updateError) {
+      console.error("[handleSaveAnswer] Interview UPDATE failed:", {
+        userId: user.id,
+        interviewId: existingInterviewId,
+        error: updateError.message,
+        code: updateError.code,
+      });
+      return jsonError(
+        `Failed to update interview progress: ${updateError.message}`,
+        500
+      );
+    }
+
+    interview = updated;
+  } else {
+    const insertPayload = {
+      user_id: user.id,
+      role: config.role,
+      difficulty: config.difficulty,
+      interview_type: config.interviewType,
+      status: "in_progress",
+      score: runningScore,
+      feedback: partialFeedback,
+      duration_seconds: durationSeconds,
+      started_at: startedAt,
+    };
+
+    const { data: inserted, error: insertError } = await supabase
+      .from("interviews")
+      .insert(insertPayload)
+      .select("id")
+      .single();
+
+    if (insertError) {
+      console.error("[handleSaveAnswer] Interview INSERT failed:", {
+        userId: user.id,
+        error: insertError.message,
+        code: insertError.code,
+      });
+      return jsonError(
+        `Failed to save interview: ${insertError.message}`,
+        500
+      );
+    }
+
+    interview = inserted;
+  }
+
+  if (!interview) {
+    return jsonError("Failed to resolve the interview row", 500);
+  }
+
+  return NextResponse.json({ success: true, interview });
+}
+
 async function parseRequestBody(request: Request): Promise<RequestBody | null> {
   try {
     const body: unknown = await request.json();
@@ -469,7 +656,13 @@ async function parseRequestBody(request: Request): Promise<RequestBody | null> {
 }
 
 function isInterviewAction(value: string | null): value is InterviewAction {
-  return value === "question" || value === "evaluate" || value === "feedback" || value === "save";
+  return (
+    value === "question" ||
+    value === "evaluate" ||
+    value === "feedback" ||
+    value === "save" ||
+    value === "save-answer"
+  );
 }
 
 export async function POST(request: Request) {
@@ -483,7 +676,7 @@ export async function POST(request: Request) {
 
   if (!isInterviewAction(action)) {
     return jsonError(
-      "Invalid action. Supported actions: question, evaluate, feedback, or save",
+      "Invalid action. Supported actions: question, evaluate, feedback, save, or save-answer",
       400
     );
   }
@@ -497,5 +690,7 @@ export async function POST(request: Request) {
       return handleFeedback(body);
     case "save":
       return handleSave(request, body);
+    case "save-answer":
+      return handleSaveAnswer(request, body);
   }
 }

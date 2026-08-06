@@ -10,7 +10,7 @@ import { InterviewSetup } from "@/components/interview/InterviewSetup";
 import { InterviewChat } from "@/components/interview/InterviewChat";
 import { VoiceControls } from "@/components/interview/VoiceControls";
 import { FeedbackCard } from "@/components/interview/FeedbackCard";
-import { Bot, ArrowLeft, Loader2, CheckCircle, AlertTriangle, Clock3 } from "lucide-react";
+import { Bot, ArrowLeft, Loader2, CheckCircle, AlertTriangle, Clock3, ChevronLeft, ChevronRight } from "lucide-react";
 import type { InterviewConfig, Difficulty } from "@/types";
 
 const RESUME_INTERVIEW_STORAGE_KEY = "aegis_resume_interview";
@@ -21,6 +21,37 @@ const FINISH_STAGE_LABELS: Record<string, string> = {
   "saving-feedback": "Saving feedback...",
   redirecting: "Redirecting...",
 };
+
+const VOICE_COMMANDS = [
+  "next",
+  "next question",
+  "continue",
+  "move on",
+  "skip",
+  "go ahead",
+];
+
+// Detect a voice command that should advance to the next question.
+function isVoiceCommand(text: string): boolean {
+  const normalized = text.toLowerCase().replace(/[^a-z\s]/g, "").trim();
+  if (!normalized) {
+    return false;
+  }
+  return VOICE_COMMANDS.some((command) => normalized.includes(command));
+}
+
+// Default coaching fallback when the model does not return one.
+function defaultCoachingMessage(evaluation: { score: number }): string {
+  if (evaluation.score >= 80) {
+    return "Great answer! Keep up that clarity and depth. Moving on to the next question.";
+  }
+  if (evaluation.score >= 60) {
+    return "Solid effort. A little more detail would strengthen your answer. Here is the next question.";
+  }
+  return "Thanks for your answer. Try to be more specific and structured next time. Here is the next question.";
+}
+
+const COACHING_SPEAK_DELAY_MS = 2600;
 
 function LoadingFallback() {
   return (
@@ -59,22 +90,91 @@ function SessionContent() {
   const [finishStage, setFinishStage] = useState<string | null>(null);
   const [resumeQuestions, setResumeQuestions] = useState<Array<{ id?: string; question: string; type?: string; focus?: string }>>([]);
   const MAX_QUESTIONS = 5;
-  const finishInterviewRef = useRef<() => Promise<boolean>>(async () => false);
+const finishInterviewRef = useRef<() => Promise<boolean>>(async () => false);
   const autoFinishTriggeredRef = useRef(false);
   const isFinishingRef = useRef(false);
   const finishCompletedRef = useRef(false);
   const endTimestampRef = useRef<number | null>(null);
   const redirectTimeoutRef = useRef<number | null>(null);
+  const processingTranscriptRef = useRef(false);
+  const autoAdvanceTimerRef = useRef<number | null>(null);
+  const lastProcessedQuestionIdRef = useRef<string | null>(null);
 
-  const handleTranscriptUpdate = useCallback(
+const handleTranscriptUpdate = useCallback(
     (transcript: string) => {
       interview.addToTranscript(transcript);
     },
     [interview]
   );
 
+  // Indirection to avoid a circular dependency: handleUserTranscript needs
+  // vapi.speak, but vapi is created with onUserTranscript.
+  const vapiSpeakRef = useRef<(message: string) => boolean>(() => false);
+
+  // Process a completed user transcript: detect voice commands, otherwise
+  // treat it as an answer → evaluate → save → coach → auto-advance.
+  const handleUserTranscript = useCallback(
+    async (transcript: string) => {
+      if (processingTranscriptRef.current) {
+        return;
+      }
+      processingTranscriptRef.current = true;
+
+      try {
+        const text = transcript.trim();
+        if (!text) {
+          return;
+        }
+
+        // Voice command to advance.
+        if (isVoiceCommand(text)) {
+          await interview.advanceQuestion();
+          return;
+        }
+
+        const currentQuestionId =
+          interview.state.currentQuestion?.id ?? null;
+        if (
+          !currentQuestionId ||
+          lastProcessedQuestionIdRef.current === currentQuestionId
+        ) {
+          return;
+        }
+
+        lastProcessedQuestionIdRef.current = currentQuestionId;
+
+        const evaluation = await interview.submitAnswer(text);
+        if (!evaluation) {
+          return;
+        }
+
+        // Persist the finalized answer immediately.
+        await interview.saveAnswerImmediately();
+
+        const coaching =
+          evaluation.coachingMessage ??
+          defaultCoachingMessage({ score: evaluation.score });
+
+        // Speak the coaching message aloud.
+        vapiSpeakRef.current(coaching);
+
+        // Auto-advance to the next question after the coaching message.
+        if (autoAdvanceTimerRef.current) {
+          window.clearTimeout(autoAdvanceTimerRef.current);
+        }
+        autoAdvanceTimerRef.current = window.setTimeout(() => {
+          void interview.advanceQuestion();
+        }, COACHING_SPEAK_DELAY_MS);
+      } finally {
+        processingTranscriptRef.current = false;
+      }
+    },
+    [interview]
+  );
+
   const vapi = useVapi({
     onTranscriptUpdate: handleTranscriptUpdate,
+    onUserTranscript: handleUserTranscript,
     onCallEnded: () => {
       void finishInterviewRef.current();
     },
@@ -83,6 +183,11 @@ function SessionContent() {
       setVapiErrorMsg(error.message);
     },
   });
+
+  // Keep the ref pointing at the live vapi.speak implementation.
+  useEffect(() => {
+    vapiSpeakRef.current = vapi.speak;
+  }, [vapi.speak]);
 
   const roleParam = searchParams.get("role") || "";
   const difficultyParam = searchParams.get("difficulty") || "";
@@ -329,7 +434,8 @@ await interview.startInterview(
     await handleFinishInterview();
   }, [vapi, handleFinishInterview]);
 
-  const progressValue = ((questionCount + 1) / MAX_QUESTIONS) * 100;
+const currentGraphIndex = interview.state.currentQuestionIndex;
+  const progressValue = ((currentGraphIndex + 1) / MAX_QUESTIONS) * 100;
   const timerPercent = (timeRemaining / (selectedDurationMinutes * 60)) * 100;
   const isFinishing = isFinishingRef.current || interview.isFinishing;
 
@@ -452,9 +558,9 @@ await interview.startInterview(
                 </div>
               </div>
               <div className="min-w-[160px] rounded-xl border border-slate-800 bg-slate-950/70 px-3 py-2">
-                <div className="mb-1 flex items-center justify-between text-[11px] uppercase tracking-[0.2em] text-slate-500">
+<div className="mb-1 flex items-center justify-between text-[11px] uppercase tracking-[0.2em] text-slate-500">
                   <span>Question</span>
-                  <span>{questionCount + 1}/{MAX_QUESTIONS}</span>
+                  <span>{currentGraphIndex + 1}/{MAX_QUESTIONS}</span>
                 </div>
                 <div className="h-2 overflow-hidden rounded-full bg-slate-800">
                   <div
@@ -463,6 +569,21 @@ await interview.startInterview(
                   />
                 </div>
               </div>
+<button
+                onClick={() => void interview.advanceQuestion()}
+                disabled={isFinishing || interview.isAdvancing || interview.loading}
+                title="Skip current question or move to the next question"
+                className="inline-flex items-center gap-2 rounded-xl border border-blue-500/30 bg-blue-500/10 px-4 py-2 text-sm font-semibold text-blue-300 transition-all duration-300 hover:bg-blue-500/20 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {interview.isAdvancing || interview.loading ? (
+                  <Loader2 size={16} className="animate-spin" />
+                ) : (
+                  <ChevronRight size={16} />
+                )}
+                {interview.isAdvancing || interview.loading
+                  ? "Advancing..."
+                  : "Next Question"}
+              </button>
               <button
                 onClick={() => void handleFinishInterview()}
                 disabled={isFinishing}

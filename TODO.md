@@ -22,4 +22,12 @@
 - [x] 9. `app/interview/session/page.tsx` + `InterviewSetup.tsx`: populate `totalQuestions` via MAX_QUESTIONS
 - [x] 10. Dashboard: verify incomplete/partial excluded from metrics (already filtered by status="completed")
 - [ ] 11. Run TypeScript checks
-</content>
+
+## Task 3: Conversational Voice Interview System
+- [x] 1. `types/index.ts`: add `coachingMessage` + `followUp` to `AnswerEvaluation`; add `currentQuestionIndex` to `InterviewState`
+- [x] 2. `lib/grok.ts`: extend evaluation prompt & return to include `coachingMessage` + `followUp`
+- [x] 3. `app/api/interview/route.ts`: parse `coachingMessage`/`followUp` in `parseEvaluation`; add `save-answer` action (incremental upsert); `save` accepts `interviewId` (update existing row)
+- [x] 4. `hooks/useInterview.ts`: add `saveAnswerImmediately`, `advanceQuestion`, `isAdvancing`, `interviewId`, `currentQuestionIndex`; thread `interviewId` into save payload; reset new state
+- [x] 5. `app/interview/session/page.tsx`: rewrite voice flow (evaluate → save → coach → auto-advance); voice command detection; "Next Question" button; `isAdvancing` lock; use `currentQuestionIndex` for progress
+- [x] 6. `components/interview/InterviewChat.tsx`: display `coachingMessage` in evaluation card (text-mode parity)
+- [x] 7. Run TypeScript checks (passed — no errors)

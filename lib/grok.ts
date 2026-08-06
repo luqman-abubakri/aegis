@@ -73,10 +73,13 @@ Provide a JSON evaluation with the following structure:
   "strengths": ["strength1", "strength2", ...],
   "weaknesses": ["weakness1", "weakness2", ...],
   "improvementSuggestions": ["suggestion1", "suggestion2", ...],
+  "coachingMessage": "A short, conversational, positive 1-2 sentence coaching message summarizing the evaluation and encouraging the candidate to move to the next question.",
+  "followUp": <boolean: true if a follow-up question should be asked, false otherwise>,
   "modelAnswer": "A concise model/correct answer"
 }
 
 Be specific and constructive. Score should reflect the quality of the answer for the given difficulty level.
+The coachingMessage should be spoken aloud to the candidate, so keep it natural and encouraging.
 Return ONLY valid JSON, no other text.`;
 }
 
@@ -262,13 +265,18 @@ export async function evaluateAnswer(params: {
     const text = await groqCompletion(prompt);
     const parsed = parseJSON(text);
 
-    return {
+return {
       question: params.question,
       answer: params.answer,
       score: readScore(parsed.score),
       strengths: readStringArray(parsed.strengths),
       weaknesses: readStringArray(parsed.weaknesses),
       improvementSuggestions: readStringArray(parsed.improvementSuggestions),
+      coachingMessage:
+        typeof parsed.coachingMessage === "string"
+          ? parsed.coachingMessage.trim()
+          : undefined,
+      followUp: typeof parsed.followUp === "boolean" ? parsed.followUp : undefined,
       modelAnswer: typeof parsed.modelAnswer === "string" ? parsed.modelAnswer : undefined,
     };
   } catch (error: unknown) {

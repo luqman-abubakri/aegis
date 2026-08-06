@@ -24,6 +24,7 @@ const initialInterviewState: InterviewState = {
   config: null,
   status: "idle",
   currentQuestion: null,
+  currentQuestionIndex: 0,
   questions: [],
   answers: [],
   transcript: [],
@@ -85,13 +86,17 @@ function getErrorMessage(error: unknown, fallback: string): string {
 }
 
 export function useInterview() {
-  const [state, setState] = useState<InterviewState>(initialInterviewState);
+const [state, setState] = useState<InterviewState>(initialInterviewState);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [startedAt, setStartedAt] = useState<number | null>(null);
+  const [isAdvancing, setIsAdvancing] = useState(false);
+  const [interviewId, setInterviewId] = useState<string | null>(null);
   const resumeInterviewQuestionsRef = useRef<ResumeInterviewQuestion[]>([]);
   const resumeInterviewIndexRef = useRef(0);
   const isFinishingRef = useRef(false);
+  const isAdvancingRef = useRef(false);
+  const interviewIdRef = useRef<string | null>(null);
   const stateRef = useRef(state);
   const startedAtRef = useRef(startedAt);
   const loadingRef = useRef(loading);
@@ -111,9 +116,13 @@ export function useInterview() {
     loadingRef.current = loading;
   }, [loading]);
 
-  useEffect(() => {
+useEffect(() => {
     errorRef.current = error;
   }, [error]);
+
+  useEffect(() => {
+    interviewIdRef.current = interviewId;
+  }, [interviewId]);
 
   useEffect(() => {
     if (state.status !== "in-progress" || startedAt === null) {
@@ -160,9 +169,10 @@ export function useInterview() {
           followUp: false,
         };
 
-        setState((previous) => ({
+setState((previous) => ({
           ...previous,
           currentQuestion: question,
+          currentQuestionIndex: previous.questions.length,
           questions: [...previous.questions, question],
         }));
 
@@ -189,9 +199,10 @@ export function useInterview() {
         followUp: previousQuestions.length > 0,
       };
 
-      setState((previous) => ({
+setState((previous) => ({
         ...previous,
         currentQuestion: question,
+        currentQuestionIndex: previous.questions.length,
         questions: [...previous.questions, question],
       }));
 
@@ -212,9 +223,13 @@ export function useInterview() {
       setError(null);
       setStartedAt(Date.now());
       resumeInterviewQuestionsRef.current = options?.resumeQuestions ?? [];
-      resumeInterviewIndexRef.current = 0;
+resumeInterviewIndexRef.current = 0;
       isFinishingRef.current = false;
       setIsFinishing(false);
+      isAdvancingRef.current = false;
+      setIsAdvancing(false);
+      setInterviewId(null);
+      interviewIdRef.current = null;
       setState({
         ...initialInterviewState,
         config,
@@ -283,12 +298,14 @@ export function useInterview() {
       setLoading(true);
 
       try {
-        const evaluationData = await postInterviewApi<{
+const evaluationData = await postInterviewApi<{
           score?: unknown;
           strengths?: unknown;
           weaknesses?: unknown;
           improvementSuggestions?: unknown;
           modelAnswer?: unknown;
+          coachingMessage?: unknown;
+          followUp?: unknown;
         }>({
           action: "evaluate",
           question: state.currentQuestion.question,
@@ -325,6 +342,14 @@ export function useInterview() {
           modelAnswer:
             typeof evaluationData.modelAnswer === "string"
               ? evaluationData.modelAnswer
+              : undefined,
+          coachingMessage:
+            typeof evaluationData.coachingMessage === "string"
+              ? evaluationData.coachingMessage
+              : undefined,
+          followUp:
+            typeof evaluationData.followUp === "boolean"
+              ? evaluationData.followUp
               : undefined,
         };
 
@@ -468,7 +493,7 @@ const currentState = stateRef.current;
           throw new Error("Your session has expired. Please sign in again.");
         }
 
-        const savePayload = {
+const savePayload = {
           action: "save",
           role: currentState.config.role,
           interviewType: currentState.config.interviewType,
@@ -479,6 +504,7 @@ const currentState = stateRef.current;
           totalQuestions,
           durationSeconds: currentState.duration,
           startedAt: currentStartedAt ? new Date(currentStartedAt).toISOString() : null,
+          interviewId: interviewIdRef.current,
         };
 
         console.log("[saveInterview] Sending save request:", {
@@ -578,12 +604,16 @@ const currentState = stateRef.current;
     }));
   }, []);
 
-  const resetInterview = useCallback(() => {
+const resetInterview = useCallback(() => {
     setError(null);
     setLoading(false);
     setStartedAt(null);
     isFinishingRef.current = false;
     setIsFinishing(false);
+    isAdvancingRef.current = false;
+    setIsAdvancing(false);
+    setInterviewId(null);
+    interviewIdRef.current = null;
     setState(initialInterviewState);
   }, []);
 
@@ -599,6 +629,106 @@ const currentState = stateRef.current;
     }));
   }, []);
 
+  const saveAnswerImmediately = useCallback(
+    async (): Promise<boolean> => {
+      const currentState = stateRef.current;
+      if (!currentState.config || currentState.answers.length === 0) {
+        return false;
+      }
+
+      setError(null);
+
+      try {
+        const {
+          data: { session },
+          error: sessionError,
+        } = await supabase.auth.getSession();
+
+        if (sessionError || !session) {
+          console.error("[saveAnswerImmediately] Session error:", {
+            sessionError: sessionError?.message ?? null,
+          });
+          return false;
+        }
+
+        const payload = {
+          action: "save-answer",
+          role: currentState.config.role,
+          interviewType: currentState.config.interviewType,
+          difficulty: currentState.config.difficulty,
+          answers: currentState.answers,
+          totalQuestions:
+            currentState.config.totalQuestions > 0
+              ? currentState.config.totalQuestions
+              : currentState.questions.length,
+          durationSeconds: currentState.duration,
+          startedAt: startedAtRef.current
+            ? new Date(startedAtRef.current).toISOString()
+            : null,
+          interviewId: interviewIdRef.current,
+        };
+
+        const result = await postInterviewApi<{
+          success: boolean;
+          interview?: { id: string };
+        }>(payload, session.access_token);
+
+        if (result.interview?.id && !interviewIdRef.current) {
+          interviewIdRef.current = result.interview.id;
+          setInterviewId(result.interview.id);
+        }
+
+        return true;
+      } catch (requestError: unknown) {
+        const message = getErrorMessage(
+          requestError,
+          "Failed to save interview progress."
+        );
+        console.error("[saveAnswerImmediately] Save failed:", message);
+        setError(message);
+        return false;
+      }
+    },
+    []
+  );
+
+  const advanceQuestion = useCallback(
+    async (): Promise<boolean> => {
+      if (isAdvancingRef.current || isFinishingRef.current) {
+        return false;
+      }
+
+      isAdvancingRef.current = true;
+      setIsAdvancing(true);
+
+      try {
+        const currentState = stateRef.current;
+        if (!currentState.config) {
+          return false;
+        }
+
+        const totalQuestions =
+          currentState.config.totalQuestions > 0
+            ? currentState.config.totalQuestions
+            : currentState.questions.length;
+        const currentIndex = currentState.currentQuestionIndex;
+        const isLast = currentIndex >= totalQuestions - 1;
+
+        if (isLast) {
+          await finishInterview();
+          return true;
+        }
+
+        await fetchQuestion();
+        return true;
+      } finally {
+        isAdvancingRef.current = false;
+        setIsAdvancing(false);
+      }
+    },
+    [fetchQuestion, finishInterview]
+  );
+
   return {
     state,
     startInterview,
@@ -611,8 +741,12 @@ const currentState = stateRef.current;
     endInterview,
     resetInterview,
     addToTranscript,
+    saveAnswerImmediately,
+    advanceQuestion,
     loading,
     error,
     isFinishing,
+    isAdvancing,
+    interviewId,
   };
 }

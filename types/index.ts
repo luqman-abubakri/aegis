@@ -64,6 +64,8 @@ export interface AnswerEvaluation {
   strengths: string[];
   weaknesses: string[];
   improvementSuggestions: string[];
+  coachingMessage?: string;
+  followUp?: boolean;
   modelAnswer?: string;
 }
 
@@ -81,6 +83,7 @@ export interface InterviewState {
   config: InterviewConfig | null;
   status: "idle" | "setup" | "in-progress" | "paused" | "completed";
   currentQuestion: InterviewQuestion | null;
+  currentQuestionIndex: number;
   questions: InterviewQuestion[];
   answers: AnswerEvaluation[];
   transcript: string[];

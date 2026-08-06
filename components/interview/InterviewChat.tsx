@@ -119,11 +119,20 @@ export function InterviewChat({
           </div>
         )}
 
-        {evaluation && (
+{evaluation && (
           <div className="ml-0 max-w-[92%] rounded-2xl border border-emerald-500/20 bg-emerald-500/5 px-4 py-4 sm:ml-12 sm:max-w-[80%] sm:px-5">
             <div className="mb-2 flex items-center gap-2">
               <span className="text-sm font-semibold text-emerald-400">Score: {evaluation.score}/100</span>
             </div>
+
+            {evaluation.coachingMessage && (
+              <div className="mb-3 rounded-xl border border-blue-500/20 bg-blue-500/5 px-3 py-2">
+                <p className="text-xs font-medium uppercase tracking-[0.24em] text-blue-300">AI Coaching</p>
+                <p className="mt-1 text-sm italic leading-relaxed text-blue-100">
+                  {evaluation.coachingMessage}
+                </p>
+              </div>
+            )}
 
             {evaluation.strengths.length > 0 && (
               <div className="mb-2">
