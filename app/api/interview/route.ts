@@ -369,7 +369,10 @@ async function handleSave(request: Request, body: RequestBody) {
   let interview: { id: string } | null = null;
 
   if (existingInterviewId) {
-    // Update the existing interview row (created incrementally via save-answer).
+    // Attempt to update the existing interview row (created incrementally via save-answer).
+    // Use maybeSingle() so that 0 matched rows returns null data without an error — if the
+    // stored interviewId is stale or was never actually written, we fall through to INSERT
+    // below instead of returning a hard 500 error that leaves the interview unsaved.
     const updatePayload = {
       status,
       score: feedback.overallScore,
@@ -390,7 +393,7 @@ async function handleSave(request: Request, body: RequestBody) {
       .eq("id", existingInterviewId)
       .eq("user_id", user.id)
       .select("id")
-      .single();
+      .maybeSingle();
 
     if (updateError) {
       console.error("[handleSave] Interview UPDATE failed:", {
@@ -405,8 +408,18 @@ async function handleSave(request: Request, body: RequestBody) {
       );
     }
 
-    interview = updated;
-  } else {
+    if (updated) {
+      // Row was successfully updated.
+      interview = updated;
+    } else {
+      // The stored interviewId matched no row (stale ID). Fall back to INSERT so the
+      // interview is always persisted as "completed" regardless of prior state.
+      console.warn("[handleSave] UPDATE matched 0 rows for interviewId:", existingInterviewId, "— falling back to INSERT");
+    }
+  }
+
+  if (!interview) {
+    // Either no existingInterviewId was provided, or the UPDATE found no matching row.
     const insertPayload = {
       user_id: user.id,
       role: config.role,
@@ -477,26 +490,59 @@ async function handleSave(request: Request, body: RequestBody) {
     summary: feedback.summary,
   };
 
-  console.log("[handleSave] Inserting feedback row:", {
-    table: "feedback",
-    payload: feedbackPayload,
-  });
-
-  const { data: feedbackData, error: feedbackError } = await supabase
+  // Check whether a feedback row already exists for this interview to prevent
+  // duplicate rows on retries. The feedback table has no UNIQUE constraint on
+  // interview_id, so without this guard every retry would insert a new row,
+  // inflating the average score on the dashboard.
+  const { data: existingFeedback } = await supabase
     .from("feedback")
-    .insert(feedbackPayload)
     .select("id")
-    .single();
+    .eq("interview_id", interview.id)
+    .maybeSingle();
 
-  console.log("[handleSave] Feedback insert response:", {
+  let feedbackData: { id: string } | null = null;
+  let feedbackError: { message: string; code: string; details?: string } | null = null;
+
+  if (existingFeedback) {
+    // Update the existing feedback row instead of inserting a duplicate.
+    console.log("[handleSave] Updating existing feedback row:", {
+      table: "feedback",
+      feedbackId: existingFeedback.id,
+    });
+    const { data: updatedFeedback, error: updateFeedbackError } = await supabase
+      .from("feedback")
+      .update(feedbackPayload)
+      .eq("id", existingFeedback.id)
+      .select("id")
+      .single();
+    feedbackData = updatedFeedback;
+    feedbackError = updateFeedbackError
+      ? { message: updateFeedbackError.message, code: updateFeedbackError.code, details: updateFeedbackError.details }
+      : null;
+  } else {
+    // No existing feedback row — insert fresh.
+    console.log("[handleSave] Inserting feedback row:", {
+      table: "feedback",
+      payload: feedbackPayload,
+    });
+    const { data: insertedFeedback, error: insertFeedbackError } = await supabase
+      .from("feedback")
+      .insert(feedbackPayload)
+      .select("id")
+      .single();
+    feedbackData = insertedFeedback;
+    feedbackError = insertFeedbackError
+      ? { message: insertFeedbackError.message, code: insertFeedbackError.code, details: insertFeedbackError.details }
+      : null;
+  }
+
+  console.log("[handleSave] Feedback write response:", {
     data: feedbackData,
-    error: feedbackError
-      ? { message: feedbackError.message, code: feedbackError.code, details: feedbackError.details }
-      : null,
+    error: feedbackError,
   });
 
   if (feedbackError) {
-    console.error("[handleSave] Feedback INSERT failed:", {
+    console.error("[handleSave] Feedback write failed:", {
       userId: user.id,
       interviewId: interview.id,
       error: feedbackError.message,
