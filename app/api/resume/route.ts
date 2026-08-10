@@ -40,11 +40,17 @@ async function extractPdfText(buffer: Buffer): Promise<string> {
     const pdfParse = (await import("pdf-parse")).default;
 
     const parsed = await pdfParse(buffer);
-
     const extractedText = parsed.text?.trim() ?? "";
+    
     console.log("STEP 7: PDF parsed", {
       extractedCharacters: extractedText.length,
+      preview: extractedText.substring(0, 200).replace(/\n/g, " "),
     });
+    
+    if (extractedText.length < 50) {
+      throw new Error("PDF_EXTRACTION_FAILED: The uploaded document appears to be empty, contains no extractable text, or is an image-based PDF. Please upload a standard text-based PDF.");
+    }
+    
     return extractedText;
   } catch (error) {
     console.error("========== RAW ERROR ==========");
@@ -154,14 +160,18 @@ async function handleAnalyze(request: Request, body: RequestBody) {
   } catch (error) {
     console.error("========== RAW ERROR ==========");
     console.error(error);
-    if (error instanceof Error) {
-      console.error("Message:", error.message);
-      console.error("Stack:", error.stack);
-      console.error("Cause:", error.cause);
-    }
-    console.dir(error, { depth: null });
+    const detail = getErrorMessage(error, "An unknown error occurred.");
     console.error("===============================");
-    throw error;
+    
+    if (detail.includes("API key budget exceeded") || detail.includes("402") || detail.includes("insufficient_quota")) {
+      return NextResponse.json({ error: "AI_QUOTA_EXCEEDED: The AI service quota has been exceeded. Please try again later." }, { status: 402 });
+    }
+    
+    if (detail.includes("PDF_EXTRACTION_FAILED")) {
+      return NextResponse.json({ error: detail }, { status: 422 });
+    }
+    
+    return NextResponse.json({ error: `AI_ANALYSIS_FAILED: ${detail}` }, { status: 500 });
   }
 }
 

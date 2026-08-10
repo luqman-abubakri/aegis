@@ -57,6 +57,13 @@ export function InterviewSetup({
   const [mode, setMode] = useState<InterviewMode>(initialMode);
   const [durationMinutes, setDurationMinutes] = useState(20);
 
+  const dynamicRoles = useMemo(() => {
+    if (initialRole && !ROLES.includes(initialRole)) {
+      return [initialRole, ...ROLES];
+    }
+    return ROLES;
+  }, [initialRole]);
+
   const ready = role && difficulty && interviewType && mode;
   const estimatedDurationLabel = useMemo(() => {
     if (durationMinutes < 60) {
@@ -105,7 +112,7 @@ export function InterviewSetup({
       <div className="mb-12">
         <h2 className="mb-6 text-2xl font-bold">Select Role</h2>
         <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-3">
-          {ROLES.map((r) => {
+          {dynamicRoles.map((r) => {
             const isActive = role === r;
             return (
               <button

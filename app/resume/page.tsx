@@ -19,6 +19,9 @@ import {
   FileCheck2,
   PlayCircle,
   BrainCircuit,
+  Eye,
+  ChevronDown,
+  ChevronUp,
 } from "lucide-react";
 import Link from "next/link";
 
@@ -55,6 +58,7 @@ export default function ResumePage() {
   const [analyzing, setAnalyzing] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [resumeToDelete, setResumeToDelete] = useState<ResumeRecord | null>(null);
+  const [expandedResumeId, setExpandedResumeId] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const router = useRouter();
 
@@ -538,10 +542,32 @@ export default function ResumePage() {
         questions: generatedInterview?.questions ?? [],
       })
     );
+    
+    const role = encodeURIComponent(
+      analysis?.professionalTitle || analysis?.careerDomain || "Candidate"
+    );
+
     router.push(
-      "/interview/session?role=Full%20Stack&difficulty=intermediate&interviewType=technical&mode=text&resumeInterview=1"
+      `/interview/session?role=${role}&difficulty=intermediate&interviewType=technical&mode=text&resumeInterview=1`
     );
   }, [router]);
+
+  const handleViewPdf = async (resume: ResumeRecord) => {
+    if (!resume.file_path) return;
+    try {
+      const { data, error } = await supabase.storage
+        .from("resumes")
+        .createSignedUrl(resume.file_path, 60); // 60 seconds
+      
+      if (error) throw error;
+      if (data?.signedUrl) {
+        window.open(data.signedUrl, '_blank');
+      }
+    } catch (error) {
+      console.error("Failed to open PDF", error);
+      setError("Failed to open PDF file.");
+    }
+  };
 
   if (authLoading || loading) {
     return (
@@ -728,10 +754,11 @@ export default function ResumePage() {
                   const analysis = resume.analysis as (ResumeAnalysis & { generatedInterview?: ResumeGeneratedInterview }) | null;
                   const hasAnalysis = Boolean(analysis);
                   return (
-                    <div
-                      key={resume.id}
-                      className="flex flex-col gap-4 rounded-2xl border border-slate-800 bg-slate-800/40 p-4 sm:flex-row sm:items-center sm:justify-between"
-                    >
+                  return (
+                    <div key={resume.id} className="space-y-2">
+                      <div
+                        className="flex flex-col gap-4 rounded-2xl border border-slate-800 bg-slate-800/40 p-4 sm:flex-row sm:items-center sm:justify-between"
+                      >
                       <div className="flex items-start gap-4">
                         <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-xl bg-violet-500/10 text-violet-400">
                           <FileCheck2 size={24} />
@@ -782,7 +809,7 @@ export default function ResumePage() {
                             disabled={analyzing || deleting || uploading}
                             className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-slate-700 bg-slate-800/70 px-4 py-2 text-sm font-semibold text-slate-200 transition-all duration-300 hover:border-violet-500/50 disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"
                           >
-                            {analyzing ? (
+                            {analyzing && activeResumeId === resume.id ? (
                               <>
                                 <Loader2 size={16} className="animate-spin" />
                                 Analyzing...
@@ -796,6 +823,14 @@ export default function ResumePage() {
                           </button>
                         )}
                         <button
+                          onClick={() => handleViewPdf(resume)}
+                          disabled={analyzing || deleting || uploading}
+                          className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-blue-500/30 bg-blue-500/10 px-4 py-2 text-sm font-semibold text-blue-400 transition-all duration-300 hover:bg-blue-500/20 disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"
+                        >
+                          <Eye size={16} />
+                          View PDF
+                        </button>
+                        <button
                           onClick={() => setResumeToDelete(resume)}
                           disabled={analyzing || deleting || uploading}
                           className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-2 text-sm font-semibold text-red-400 transition-all duration-300 hover:bg-red-500/20 disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"
@@ -803,7 +838,131 @@ export default function ResumePage() {
                           <Trash2 size={16} />
                           Delete
                         </button>
+                        {hasAnalysis && (
+                          <button
+                            onClick={() => setExpandedResumeId(expandedResumeId === resume.id ? null : resume.id)}
+                            className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-slate-700 bg-slate-800/50 px-4 py-2 text-sm font-semibold text-slate-300 transition-all duration-300 hover:bg-slate-700/50 sm:w-auto"
+                          >
+                            {expandedResumeId === resume.id ? (
+                              <>
+                                <ChevronUp size={16} />
+                                Hide Details
+                              </>
+                            ) : (
+                              <>
+                                <ChevronDown size={16} />
+                                Show Details
+                              </>
+                            )}
+                          </button>
+                        )}
                       </div>
+                    </div>
+                    {hasAnalysis && expandedResumeId === resume.id && (
+                      <div className="mt-2 rounded-2xl border border-slate-800 bg-slate-900/50 p-6 text-sm text-slate-300 shadow-inner">
+                        <div className="grid gap-6 md:grid-cols-2">
+                          <div>
+                            <h3 className="mb-2 text-lg font-bold text-violet-300">Profile</h3>
+                            <p><strong>Name:</strong> {analysis?.candidateName || "N/A"}</p>
+                            <p><strong>Title:</strong> {analysis?.professionalTitle || "N/A"}</p>
+                            <p><strong>Domain:</strong> {analysis?.careerDomain || "N/A"}</p>
+                            <p><strong>Level:</strong> {analysis?.careerLevel || "N/A"}</p>
+                            {analysis?.summary && <p className="mt-2 text-slate-400">{analysis.summary}</p>}
+                          </div>
+                          <div>
+                            <h3 className="mb-2 text-lg font-bold text-emerald-300">Skills</h3>
+                            <div className="mb-2 flex flex-wrap gap-2">
+                              {analysis?.technicalSkills?.map((skill, idx) => (
+                                <span key={idx} className="rounded border border-emerald-500/20 bg-emerald-500/10 px-2 py-1 text-xs">{skill}</span>
+                              ))}
+                              {analysis?.softSkills?.map((skill, idx) => (
+                                <span key={idx} className="rounded border border-cyan-500/20 bg-cyan-500/10 px-2 py-1 text-xs">{skill}</span>
+                              ))}
+                            </div>
+                            {analysis?.missingSkills && analysis.missingSkills.length > 0 && (
+                              <>
+                                <h4 className="mt-4 mb-1 text-xs font-semibold text-red-300">Missing Skills</h4>
+                                <div className="flex flex-wrap gap-2">
+                                  {analysis.missingSkills.map((skill, idx) => (
+                                    <span key={idx} className="rounded border border-red-500/20 bg-red-500/10 px-2 py-1 text-xs text-red-300">{skill}</span>
+                                  ))}
+                                </div>
+                              </>
+                            )}
+                          </div>
+                        </div>
+
+                        <div className="mt-6 grid gap-6 md:grid-cols-2">
+                          {analysis?.strengths && analysis.strengths.length > 0 && (
+                            <div>
+                              <h3 className="mb-2 text-lg font-bold text-blue-300">Strengths</h3>
+                              <ul className="list-inside list-disc space-y-1 text-slate-400">
+                                {analysis.strengths.map((str, idx) => <li key={idx}>{str}</li>)}
+                              </ul>
+                            </div>
+                          )}
+                          {analysis?.weaknesses && analysis.weaknesses.length > 0 && (
+                            <div>
+                              <h3 className="mb-2 text-lg font-bold text-amber-300">Weaknesses</h3>
+                              <ul className="list-inside list-disc space-y-1 text-slate-400">
+                                {analysis.weaknesses.map((wk, idx) => <li key={idx}>{wk}</li>)}
+                              </ul>
+                            </div>
+                          )}
+                        </div>
+
+                        {analysis?.experience && analysis.experience.length > 0 && (
+                          <div className="mt-6">
+                            <h3 className="mb-3 text-lg font-bold text-indigo-300">Experience</h3>
+                            <div className="space-y-4">
+                              {analysis.experience.map((exp: any, idx: number) => (
+                                <div key={idx} className="border-l-2 border-slate-700 pl-4">
+                                  <p className="font-semibold text-white">{exp.role} <span className="font-normal text-slate-400">at {exp.organization}</span></p>
+                                  <p className="text-xs text-slate-500">{exp.dates}</p>
+                                  {exp.description && <p className="mt-1 text-slate-400">{exp.description}</p>}
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {analysis?.education && analysis.education.length > 0 && (
+                          <div className="mt-6">
+                            <h3 className="mb-3 text-lg font-bold text-fuchsia-300">Education</h3>
+                            <div className="space-y-4">
+                              {analysis.education.map((edu: any, idx: number) => (
+                                <div key={idx} className="border-l-2 border-slate-700 pl-4">
+                                  <p className="font-semibold text-white">{edu.degree}</p>
+                                  <p className="text-xs text-slate-400">{edu.institution} • {edu.dates}</p>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                        
+                        {analysis?.projects && analysis.projects.length > 0 && (
+                          <div className="mt-6">
+                            <h3 className="mb-3 text-lg font-bold text-cyan-300">Projects</h3>
+                            <div className="grid gap-4 md:grid-cols-2">
+                              {analysis.projects.map((proj: any, idx: number) => (
+                                <div key={idx} className="rounded-lg border border-slate-800 bg-slate-800/30 p-3">
+                                  <p className="font-semibold text-white">{proj.name}</p>
+                                  {proj.description && <p className="mt-1 text-xs text-slate-400">{proj.description}</p>}
+                                  {proj.technologies && proj.technologies.length > 0 && (
+                                    <div className="mt-2 flex flex-wrap gap-1">
+                                      {proj.technologies.map((tech: string, i: number) => (
+                                        <span key={i} className="rounded bg-slate-700 px-1.5 py-0.5 text-[10px]">{tech}</span>
+                                      ))}
+                                    </div>
+                                  )}
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                      </div>
+                    )}
                     </div>
                   );
                 })}

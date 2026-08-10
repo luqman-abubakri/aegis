@@ -11,6 +11,7 @@ import type {
   Difficulty,
   InterviewFeedback,
   InterviewType,
+  ResumeAnalysis,
 } from "@/types";
 
 export const runtime = "nodejs";
@@ -196,18 +197,47 @@ function jsonError(error: string, status: number) {
   return NextResponse.json({ error }, { status });
 }
 
-async function handleQuestion(body: RequestBody) {
+async function getLatestResumeProfile(request: Request): Promise<ResumeAnalysis | undefined> {
+  const accessToken = getAccessToken(request);
+  if (!accessToken) return undefined;
+
+  try {
+    const supabase = createAuthenticatedSupabaseClient(accessToken);
+    const { data: { user } } = await supabase.auth.getUser(accessToken);
+    
+    if (!user) return undefined;
+
+    const { data } = await supabase
+      .from("resume_uploads")
+      .select("analysis")
+      .eq("user_id", user.id)
+      .not("analysis", "is", null)
+      .order("uploaded_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    return data?.analysis ? (data.analysis as ResumeAnalysis) : undefined;
+  } catch (error) {
+    console.error("Failed to fetch latest resume profile:", error);
+    return undefined;
+  }
+}
+
+async function handleQuestion(request: Request, body: RequestBody) {
   const config = getInterviewConfig(body);
   if ("error" in config) {
     return jsonError(config.error, 400);
   }
 
   try {
+    const resumeProfile = await getLatestResumeProfile(request);
+
     const question = await generateInterviewQuestion(
       config.role,
       config.interviewType,
       config.difficulty,
-      parsePreviousQuestions(body.previousQuestions)
+      parsePreviousQuestions(body.previousQuestions),
+      resumeProfile
     );
 
     return NextResponse.json({ question });
@@ -218,7 +248,7 @@ async function handleQuestion(body: RequestBody) {
   }
 }
 
-async function handleEvaluate(body: RequestBody) {
+async function handleEvaluate(request: Request, body: RequestBody) {
   const config = getInterviewConfig(body);
   const question = getString(body.question);
   const answer = getString(body.answer);
@@ -232,11 +262,14 @@ async function handleEvaluate(body: RequestBody) {
   }
 
   try {
+    const resumeProfile = await getLatestResumeProfile(request);
+
     const evaluation = await evaluateAnswer({
       question,
       answer,
       ...config,
       ...(getString(body.context) ? { context: getString(body.context)! } : {}),
+      resumeProfile,
     });
 
     return NextResponse.json(evaluation);
@@ -252,7 +285,7 @@ function getPositiveInt(value: unknown): number {
   return Number.isFinite(parsed) ? Math.max(0, Math.round(parsed)) : 0;
 }
 
-async function handleFeedback(body: RequestBody) {
+async function handleFeedback(request: Request, body: RequestBody) {
   const config = getInterviewConfig(body);
   const evaluations = parseEvaluations(body.evaluations);
 
@@ -279,11 +312,14 @@ async function handleFeedback(body: RequestBody) {
   }
 
   try {
+    const resumeProfile = await getLatestResumeProfile(request);
+
     const feedback = await generateFinalFeedback({
       ...config,
       evaluations,
       totalQuestions,
       answeredQuestions,
+      resumeProfile,
     });
     return NextResponse.json(feedback);
   } catch (error: unknown) {
@@ -736,11 +772,11 @@ export async function POST(request: Request) {
 
   switch (action) {
     case "question":
-      return handleQuestion(body);
+      return handleQuestion(request, body);
     case "evaluate":
-      return handleEvaluate(body);
+      return handleEvaluate(request, body);
     case "feedback":
-      return handleFeedback(body);
+      return handleFeedback(request, body);
     case "save":
       return handleSave(request, body);
     case "save-answer":

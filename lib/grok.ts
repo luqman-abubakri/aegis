@@ -13,9 +13,9 @@ const groq = new Groq({
   apiKey: process.env.GROQ_API_KEY || "",
 });
 
-const SYSTEM_PROMPT = `You are an expert technical interviewer conducting a practice interview.
+const SYSTEM_PROMPT = `You are an expert interviewer conducting a practice interview.
 Your role is to:
-1. Ask relevant interview questions based on the candidate's target role, interview type, and difficulty level.
+1. Ask relevant interview questions based on the candidate's target role, interview type, difficulty level, and resume profile (if provided).
 2. Listen to (or read) the candidate's answers and provide constructive feedback.
 3. Maintain natural interview flow with follow-up questions when appropriate.
 4. Evaluate answers fairly and provide specific, actionable feedback.
@@ -29,6 +29,7 @@ function buildQuestionPrompt(params: {
   interviewType: InterviewType;
   difficulty: Difficulty;
   previousQuestions: { question: string; answer?: string }[];
+  resumeProfile?: ResumeAnalysis;
 }): string {
   const context =
     params.previousQuestions.length > 0
@@ -40,9 +41,29 @@ function buildQuestionPrompt(params: {
           .join("\n\n")}\n\nBased on the candidate's previous answers, generate the next appropriate question.`
       : "";
 
+  const resumeContext = params.resumeProfile
+    ? `\nCANDIDATE PROFILE FROM VERIFIED RESUME:
+Name: ${params.resumeProfile.candidateName || "Candidate"}
+Professional Title: ${params.resumeProfile.professionalTitle || "Not specified"}
+Career Domain: ${params.resumeProfile.careerDomain || "Not specified"}
+Career Level: ${params.resumeProfile.careerLevel || "Not specified"}
+Skills: ${[...(params.resumeProfile.technicalSkills || []), ...(params.resumeProfile.softSkills || [])].join(", ")}
+Experience: ${JSON.stringify(params.resumeProfile.experience || [])}
+Education: ${JSON.stringify(params.resumeProfile.education || [])}
+
+STRICT RULES:
+1. Questions MUST match the candidate's career domain.
+2. Questions SHOULD use relevant experience and skills from the resume.
+3. NEVER invent experience.
+4. NEVER assume the candidate is a software developer unless their resume shows it or the user explicitly selected a software development interview.
+5. NEVER introduce React, Next.js, Node.js, JavaScript, TypeScript, or other software technologies unless they appear in the resume or the user explicitly selected a software-development interview.
+6. If the resume does not provide enough information for a specific question, ask a general domain-appropriate question instead.`
+    : "";
+
   return `Role: ${params.role}
 Interview Type: ${params.interviewType}
 Difficulty Level: ${params.difficulty}
+${resumeContext}
 ${context}
 
 Generate a single interview question. Return ONLY the question text, nothing else.
@@ -57,12 +78,17 @@ function buildEvaluationPrompt(params: {
   interviewType: InterviewType;
   difficulty: Difficulty;
   context?: string;
+  resumeProfile?: ResumeAnalysis;
 }): string {
+  const resumeContext = params.resumeProfile
+    ? `\nCANDIDATE PROFILE FROM VERIFIED RESUME:\nCareer Domain: ${params.resumeProfile.careerDomain}\nProfessional Title: ${params.resumeProfile.professionalTitle}`
+    : "";
+
   return `Evaluate the following interview answer.
 
 Role: ${params.role}
 Interview Type: ${params.interviewType}
-Difficulty: ${params.difficulty}
+Difficulty: ${params.difficulty}${resumeContext}
 Question: ${params.question}
 Candidate's Answer: ${params.answer}
 ${params.context ? `Context: ${params.context}` : ""}
@@ -90,6 +116,7 @@ function buildFeedbackPrompt(params: {
   evaluations: AnswerEvaluation[];
   totalQuestions?: number;
   answeredQuestions?: number;
+  resumeProfile?: ResumeAnalysis;
 }): string {
   const totalQuestions = params.totalQuestions ?? params.evaluations.length;
   const answeredQuestions = params.answeredQuestions ?? params.evaluations.length;
@@ -128,6 +155,7 @@ IMPORTANT RULES
 Role: ${params.role}
 Interview Type: ${params.interviewType}
 Difficulty: ${params.difficulty}
+${params.resumeProfile ? `Career Domain: ${params.resumeProfile.careerDomain}` : ""}
 
 Questions and Evaluations:
 ${evaluationsText}
@@ -259,6 +287,7 @@ export async function evaluateAnswer(params: {
   interviewType: InterviewType;
   difficulty: Difficulty;
   context?: string;
+  resumeProfile?: ResumeAnalysis;
 }): Promise<Omit<AnswerEvaluation, "questionId">> {
   try {
     const prompt = buildEvaluationPrompt(params);
@@ -298,6 +327,7 @@ export async function generateFinalFeedback(params: {
   evaluations: AnswerEvaluation[];
   totalQuestions?: number;
   answeredQuestions?: number;
+  resumeProfile?: ResumeAnalysis;
 }): Promise<InterviewFeedback> {
   const totalQuestions = params.totalQuestions ?? params.evaluations.length;
   const answeredQuestions = params.answeredQuestions ?? params.evaluations.length;
@@ -366,22 +396,38 @@ function buildResumeAnalysisPrompt(params: {
   resumeText: string;
   fileName: string;
 }): string {
-  return `Analyze the following resume content and return ONLY valid JSON.
+  return `You are analyzing the candidate's actual resume. Extract information ONLY from the supplied resume text.
 
 File name: ${params.fileName}
 Resume text:
 ${params.resumeText}
 
+Never invent employment, education, skills, projects, certifications, professional experience, or career domain. If information is absent, return an empty array/null rather than guessing.
+
+Determine the candidate's professional domain dynamically (e.g. Medicine / Healthcare, Software Engineering, Accounting, Law, Mechanical Engineering, etc). Do NOT restrict it to a hardcoded list.
+
 Return a JSON object with this exact structure:
 {
+  "candidateName": "Extracted name or null",
+  "professionalTitle": "Extracted title or null",
+  "careerDomain": "Identified domain",
+  "careerLevel": "Extracted level or null",
+  "summary": "Brief summary",
   "overallScore": 0,
   "atsScore": 0,
   "interviewReadiness": 0,
   "technicalSkills": ["skill"],
   "softSkills": ["skill"],
   "missingSkills": ["skill"],
+  "missingKeywords": ["keyword"],
+  "interviewFocus": ["topic"],
   "strengths": ["strength"],
   "weaknesses": ["weakness"],
+  "experience": [{"role": "title", "organization": "company", "dates": "dates", "description": "desc"}],
+  "education": [{"degree": "degree", "institution": "school", "dates": "dates"}],
+  "projects": [{"name": "project", "description": "desc", "technologies": ["tech"]}],
+  "certifications": ["certification"],
+  "achievements": ["achievement"],
   "grammarIssues": ["issue"],
   "formattingIssues": ["issue"],
   "recommendations": ["recommendation"],
@@ -428,15 +474,29 @@ export async function analyzeResumeText(params: {
     const text = await groqCompletion(buildResumeAnalysisPrompt(params), 4096);
     const parsed = parseJSON(text);
 
+    const safeArray = (arr: unknown) => Array.isArray(arr) ? arr : [];
+
     return {
+      candidateName: typeof parsed.candidateName === "string" ? parsed.candidateName : undefined,
+      professionalTitle: typeof parsed.professionalTitle === "string" ? parsed.professionalTitle : undefined,
+      careerDomain: typeof parsed.careerDomain === "string" ? parsed.careerDomain : undefined,
+      careerLevel: typeof parsed.careerLevel === "string" ? parsed.careerLevel : undefined,
+      summary: typeof parsed.summary === "string" ? parsed.summary : undefined,
       overallScore: readScore(parsed.overallScore),
       atsScore: readScore(parsed.atsScore),
       interviewReadiness: readScore(parsed.interviewReadiness),
       technicalSkills: readStringArray(parsed.technicalSkills),
       softSkills: readStringArray(parsed.softSkills),
       missingSkills: readStringArray(parsed.missingSkills),
+      missingKeywords: readStringArray(parsed.missingKeywords),
+      interviewFocus: readStringArray(parsed.interviewFocus),
       strengths: readStringArray(parsed.strengths),
       weaknesses: readStringArray(parsed.weaknesses),
+      experience: safeArray(parsed.experience) as any[],
+      education: safeArray(parsed.education) as any[],
+      projects: safeArray(parsed.projects) as any[],
+      certifications: readStringArray(parsed.certifications),
+      achievements: readStringArray(parsed.achievements),
       grammarIssues: readStringArray(parsed.grammarIssues),
       formattingIssues: readStringArray(parsed.formattingIssues),
       recommendations: readStringArray(parsed.recommendations),

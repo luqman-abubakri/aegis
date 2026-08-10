@@ -20,21 +20,58 @@ export interface InterviewConfig {
   totalQuestions: number;
 }
 
+export interface ResumeExperience {
+  role?: string;
+  organization?: string;
+  dates?: string;
+  description?: string;
+}
+
+export interface ResumeEducation {
+  degree?: string;
+  institution?: string;
+  dates?: string;
+}
+
+export interface ResumeProject {
+  name?: string;
+  description?: string;
+  technologies?: string[];
+}
+
 export interface ResumeAnalysis {
+  candidateName?: string;
+  professionalTitle?: string;
+  careerDomain?: string;
+  careerLevel?: string;
+  summary?: string;
+  
   overallScore: number;
   atsScore: number;
   interviewReadiness: number;
+  
   technicalSkills: string[];
   softSkills: string[];
   missingSkills: string[];
+  
   strengths: string[];
   weaknesses: string[];
+  
+  experience?: ResumeExperience[];
+  education?: ResumeEducation[];
+  projects?: ResumeProject[];
+  certifications?: string[];
+  achievements?: string[];
+
   grammarIssues: string[];
   formattingIssues: string[];
   recommendations: string[];
   suggestedProjects: string[];
   suggestedCertifications: string[];
   suggestedTechnologies: string[];
+  
+  missingKeywords?: string[];
+  interviewFocus?: string[];
 }
 
 export interface ResumeGeneratedInterview {
