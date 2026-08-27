@@ -4,19 +4,21 @@ import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { InterviewSetup } from "@/components/interview/InterviewSetup";
-import { createClientComponentClient } from "@supabase/auth-helpers-nextjs";
+import { supabase } from "@/lib/supabase";
 import type { InterviewConfig } from "@/types";
 
 export default function InterviewPage() {
   const router = useRouter();
   const [initialRole, setInitialRole] = useState<string>("");
   const [loading, setLoading] = useState(true);
-  const supabase = createClientComponentClient();
 
   useEffect(() => {
     async function fetchLatestResumeTitle() {
       try {
-        const { data: { user } } = await supabase.auth.getUser();
+        const {
+          data: { user },
+        } = await supabase.auth.getUser();
+
         if (!user) return;
 
         const { data } = await supabase
@@ -29,7 +31,11 @@ export default function InterviewPage() {
           .maybeSingle();
 
         if (data?.analysis) {
-          const analysis = data.analysis as any;
+          const analysis = data.analysis as {
+            professionalTitle?: string;
+            careerDomain?: string;
+          };
+
           if (analysis.professionalTitle) {
             setInitialRole(analysis.professionalTitle);
           } else if (analysis.careerDomain) {
@@ -37,14 +43,17 @@ export default function InterviewPage() {
           }
         }
       } catch (error) {
-        console.error("Failed to fetch initial role from resume:", error);
+        console.error(
+          "Failed to fetch initial role from resume:",
+          error
+        );
       } finally {
         setLoading(false);
       }
     }
-    
+
     fetchLatestResumeTitle();
-  }, [supabase]);
+  }, []);
 
   const handleStart = useCallback(
     (config: InterviewConfig) => {
@@ -55,6 +64,7 @@ export default function InterviewPage() {
         mode: config.mode,
         duration: String(config.durationMinutes ?? 20),
       });
+
       router.push(`/interview/session?${params.toString()}`);
     },
     [router]
@@ -63,7 +73,12 @@ export default function InterviewPage() {
   return (
     <ProtectedRoute>
       <main className="min-h-screen bg-[#020817] pb-20 pt-28 text-white">
-        {!loading && <InterviewSetup onStart={handleStart} initialRole={initialRole} />}
+        {!loading && (
+          <InterviewSetup
+            onStart={handleStart}
+            initialRole={initialRole}
+          />
+        )}
       </main>
     </ProtectedRoute>
   );

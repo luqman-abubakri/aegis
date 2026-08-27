@@ -22,7 +22,12 @@ Your role is to:
 
 Keep questions clear, concise, and appropriate for the level.`;
 
-const MODEL = "llama-3.3-70b-versatile";
+// const MODEL = "llama-3.3-70b-versatile";
+// const MODEL = process.env.GROQ_MODEL || "openai/gpt-oss-120b";
+const MODEL = "openai/gpt-oss-120b";
+
+console.log("🔥 AEGIS GROQ MODEL:", MODEL);
+
 
 function buildQuestionPrompt(params: {
   role: string;
