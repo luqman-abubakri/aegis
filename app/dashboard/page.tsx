@@ -6,6 +6,7 @@ import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { useAuth } from "@/contexts/AuthProvider";
 import { supabase } from "@/lib/supabase";
 import { LoadingSpinner } from "@/components/LoadingSpinner";
+import { ConfirmDialog } from "@/components/ConfirmDialog";
 import {
   BarChart3,
   Target,
@@ -15,6 +16,7 @@ import {
   FileText,
   User,
   ArrowRight,
+  Trash2,
 } from "lucide-react";
 import Link from "next/link";
 
@@ -39,24 +41,24 @@ interface DashboardFeedback {
   created_at: string;
 }
 
+/**
+ * Calculate consecutive practice-day streak.
+ */
 function calculateStreak(dates: string[]): number {
   if (dates.length === 0) return 0;
 
-  // Convert each date to a "day key" (YYYY-MM-DD) in local time.
-  // Using explicit date construction avoids the non-standard
-  // toDateString() -> new Date(string) round-trip which can behave
-  // differently across JS engines.
   const dayKeys = new Set(
     dates.map((d) => {
       const date = new Date(d);
+
       const year = date.getFullYear();
       const month = String(date.getMonth() + 1).padStart(2, "0");
       const day = String(date.getDate()).padStart(2, "0");
+
       return `${year}-${month}-${day}`;
     })
   );
 
-  // Convert day keys to timestamps (midnight local time) and sort descending
   const sortedDays = Array.from(dayKeys)
     .map((key) => {
       const [y, m, d] = key.split("-").map(Number);
@@ -66,17 +68,22 @@ function calculateStreak(dates: string[]): number {
 
   const today = new Date();
   today.setHours(0, 0, 0, 0);
+
   const todayMs = today.getTime();
   const oneDayMs = 86400000;
 
-  // If the most recent practice wasn't today or yesterday, streak is 0
+  /**
+   * If the most recent practice was before yesterday,
+   * the streak is broken.
+   */
   if (sortedDays[0] < todayMs - oneDayMs) {
     return 0;
   }
 
   let streak = 0;
-  // Start from today if the most recent practice is today, otherwise yesterday
-  let expectedDay = sortedDays[0] >= todayMs ? todayMs : todayMs - oneDayMs;
+
+  let expectedDay =
+    sortedDays[0] >= todayMs ? todayMs : todayMs - oneDayMs;
 
   for (const dayMs of sortedDays) {
     if (dayMs === expectedDay) {
@@ -92,15 +99,30 @@ function calculateStreak(dates: string[]): number {
 
 export default function DashboardPage() {
   const { user, loading: authLoading } = useAuth();
+
   const [interviews, setInterviews] = useState<DashboardInterview[]>([]);
-  const [feedbackRecords, setFeedbackRecords] = useState<DashboardFeedback[]>([]);
+  const [feedbackRecords, setFeedbackRecords] = useState<
+    DashboardFeedback[]
+  >([]);
+
   const [loading, setLoading] = useState(true);
 
+  // Delete dialog state
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [interviewToDelete, setInterviewToDelete] =
+    useState<DashboardInterview | null>(null);
+  const [deleting, setDeleting] = useState(false);
+
+  /**
+   * Load dashboard data.
+   */
   useEffect(() => {
     async function loadDashboardData() {
       if (!user) return;
 
       console.log("[Dashboard] Loading data for user:", user.id);
+
+      setLoading(true);
 
       try {
         const [interviewsRes, feedbackRes] = await Promise.all([
@@ -110,64 +132,189 @@ export default function DashboardPage() {
             .eq("user_id", user.id)
             .eq("status", "completed")
             .order("created_at", { ascending: false }),
+
           supabase
             .from("feedback")
-            .select("id, interview_id, overall_score, summary, created_at")
+            .select(
+              "id, interview_id, overall_score, summary, created_at"
+            )
             .eq("user_id", user.id)
             .order("created_at", { ascending: false }),
         ]);
 
         console.log("[Dashboard] Interviews query response:", {
           userId: user.id,
-          filter: { user_id: user.id, status: "completed" },
           count: interviewsRes.data?.length ?? 0,
           error: interviewsRes.error
-            ? { message: interviewsRes.error.message, code: interviewsRes.error.code }
+            ? {
+                message: interviewsRes.error.message,
+                code: interviewsRes.error.code,
+              }
             : null,
         });
 
         console.log("[Dashboard] Feedback query response:", {
           userId: user.id,
-          filter: { user_id: user.id },
           count: feedbackRes.data?.length ?? 0,
           error: feedbackRes.error
-            ? { message: feedbackRes.error.message, code: feedbackRes.error.code }
+            ? {
+                message: feedbackRes.error.message,
+                code: feedbackRes.error.code,
+              }
             : null,
         });
 
         if (interviewsRes.error) {
-          console.error("[Dashboard] Interviews query failed:", {
-            message: interviewsRes.error.message,
-            code: interviewsRes.error.code,
-            details: interviewsRes.error.details,
-          });
-        } else if (interviewsRes.data) {
-          setInterviews(interviewsRes.data as DashboardInterview[]);
+          console.error(
+            "[Dashboard] Interviews query failed:",
+            interviewsRes.error
+          );
+        } else {
+          setInterviews(
+            (interviewsRes.data || []) as DashboardInterview[]
+          );
         }
 
         if (feedbackRes.error) {
-          console.error("[Dashboard] Feedback query failed:", {
-            message: feedbackRes.error.message,
-            code: feedbackRes.error.code,
-            details: feedbackRes.error.details,
-          });
-        } else if (feedbackRes.data) {
-          setFeedbackRecords(feedbackRes.data as DashboardFeedback[]);
+          console.error(
+            "[Dashboard] Feedback query failed:",
+            feedbackRes.error
+          );
+        } else {
+          setFeedbackRecords(
+            (feedbackRes.data || []) as DashboardFeedback[]
+          );
         }
       } catch (err) {
-        console.error("[Dashboard] Unexpected fetch error:", {
-          userId: user.id,
-          error: err instanceof Error ? err.message : String(err),
-        });
+        console.error("[Dashboard] Unexpected fetch error:", err);
       } finally {
         setLoading(false);
       }
     }
 
-    if (user) {
+    if (user && !authLoading) {
       loadDashboardData();
     }
   }, [user, authLoading]);
+
+  /**
+   * Open delete confirmation dialog.
+   */
+  const handleDeleteClick = (interview: DashboardInterview) => {
+    setInterviewToDelete(interview);
+    setDeleteDialogOpen(true);
+  };
+
+  /**
+   * Cancel deletion.
+   */
+  const handleCancelDelete = () => {
+    if (deleting) return;
+
+    setDeleteDialogOpen(false);
+    setInterviewToDelete(null);
+  };
+
+  /**
+   * Delete interview and its related feedback.
+   */
+  const handleConfirmDelete = async () => {
+    if (!user || !interviewToDelete) return;
+
+    setDeleting(true);
+
+    const interviewId = interviewToDelete.id;
+
+    try {
+      console.log("[Dashboard] Deleting interview:", interviewId);
+
+      /**
+       * STEP 1:
+       * Delete related feedback.
+       *
+       * This is done first because feedback.interview_id
+       * may reference interviews.id.
+       */
+      const { error: feedbackDeleteError } = await supabase
+        .from("feedback")
+        .delete()
+        .eq("interview_id", interviewId)
+        .eq("user_id", user.id);
+
+      if (feedbackDeleteError) {
+        console.error(
+          "[Dashboard] Failed to delete feedback:",
+          feedbackDeleteError
+        );
+
+        throw new Error(
+          `Could not delete interview feedback: ${feedbackDeleteError.message}`
+        );
+      }
+
+      /**
+       * STEP 2:
+       * Delete the interview itself.
+       *
+       * user_id check ensures we only attempt to delete
+       * an interview belonging to the authenticated user.
+       */
+      const { error: interviewDeleteError } = await supabase
+        .from("interviews")
+        .delete()
+        .eq("id", interviewId)
+        .eq("user_id", user.id);
+
+      if (interviewDeleteError) {
+        console.error(
+          "[Dashboard] Failed to delete interview:",
+          interviewDeleteError
+        );
+
+        throw new Error(
+          `Could not delete interview: ${interviewDeleteError.message}`
+        );
+      }
+
+      /**
+       * STEP 3:
+       * Update local state immediately.
+       */
+      setInterviews((current) =>
+        current.filter((interview) => interview.id !== interviewId)
+      );
+
+      setFeedbackRecords((current) =>
+        current.filter(
+          (feedback) => feedback.interview_id !== interviewId
+        )
+      );
+
+      console.log(
+        "[Dashboard] Interview deleted successfully:",
+        interviewId
+      );
+
+      /**
+       * Close dialog.
+       */
+      setDeleteDialogOpen(false);
+      setInterviewToDelete(null);
+    } catch (error) {
+      console.error("[Dashboard] Delete interview error:", error);
+
+      /**
+       * Keep dialog open so the user knows the deletion failed.
+       */
+      alert(
+        error instanceof Error
+          ? error.message
+          : "Something went wrong while deleting the interview."
+      );
+    } finally {
+      setDeleting(false);
+    }
+  };
 
   if (authLoading || loading) {
     return (
@@ -177,38 +324,67 @@ export default function DashboardPage() {
     );
   }
 
+  /**
+   * ================================
+   * STATS
+   * ================================
+   */
+
   const completedCount = interviews.length;
 
-  // Average score from feedback table
+  /**
+   * Average score from feedback table.
+   */
   const scoredFeedback = feedbackRecords.filter(
     (f) => typeof f.overall_score === "number"
   );
+
   const avgScore =
     scoredFeedback.length > 0
       ? `${Math.round(
-          scoredFeedback.reduce((a, b) => a + (b.overall_score || 0), 0) /
-            scoredFeedback.length
+          scoredFeedback.reduce(
+            (total, feedback) =>
+              total + (feedback.overall_score || 0),
+            0
+          ) / scoredFeedback.length
         )}%`
       : "—";
 
-  // Total practice time from interview durations (seconds -> minutes)
+  /**
+   * Total practice time.
+   */
   const totalSeconds = interviews.reduce(
-    (sum, i) => sum + (i.duration_seconds || 0),
+    (sum, interview) =>
+      sum + (interview.duration_seconds || 0),
     0
   );
+
   const totalTimeMinutes = Math.round(totalSeconds / 60);
+
   const totalTimeDisplay =
     totalTimeMinutes >= 60
-      ? `${Math.floor(totalTimeMinutes / 60)}h ${totalTimeMinutes % 60}m`
+      ? `${Math.floor(totalTimeMinutes / 60)}h ${
+          totalTimeMinutes % 60
+        }m`
       : `${totalTimeMinutes} min`;
 
-  // Streak: consecutive practice days
+  /**
+   * Practice streak.
+   */
   const streakCount = calculateStreak(
-    interviews.map((i) => i.created_at)
+    interviews.map((interview) => interview.created_at)
   );
-  const streakDisplay = `${streakCount} ${streakCount === 1 ? "day" : "days"}`;
 
-  const latestInterview = interviews.find((i) => i.feedback);
+  const streakDisplay = `${streakCount} ${
+    streakCount === 1 ? "day" : "days"
+  }`;
+
+  /**
+   * Latest interview.
+   */
+  const latestInterview = interviews.find(
+    (interview) => interview.feedback
+  );
 
   const stats = [
     {
@@ -243,6 +419,7 @@ export default function DashboardPage() {
         {/* Background */}
         <div className="absolute inset-0 -z-10 overflow-hidden">
           <div className="absolute left-1/2 top-0 h-[500px] w-[500px] -translate-x-1/2 rounded-full bg-blue-500/10 blur-[170px]" />
+
           <div
             className="absolute inset-0 opacity-[0.08]"
             style={{
@@ -265,11 +442,15 @@ export default function DashboardPage() {
             <h1 className="text-4xl font-black md:text-5xl">
               Welcome back,{" "}
               <span className="bg-gradient-to-r from-blue-400 to-cyan-400 bg-clip-text text-transparent">
-                {user?.user_metadata?.full_name || user?.email || "Aegis User"}
+                {user?.user_metadata?.full_name ||
+                  user?.email ||
+                  "Aegis User"}
               </span>
             </h1>
+
             <p className="mt-3 text-lg text-slate-400">
-              Ready to ace your next interview? Let&apos;s get started.
+              Ready to ace your next interview? Let&apos;s get
+              started.
             </p>
           </motion.div>
 
@@ -277,6 +458,7 @@ export default function DashboardPage() {
           <div className="mb-12 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
             {stats.map((stat, index) => {
               const Icon = stat.icon;
+
               return (
                 <motion.div
                   key={stat.label}
@@ -290,8 +472,14 @@ export default function DashboardPage() {
                   >
                     <Icon size={22} />
                   </div>
-                  <p className="text-3xl font-bold">{stat.value}</p>
-                  <p className="mt-1 text-sm text-slate-400">{stat.label}</p>
+
+                  <p className="text-3xl font-bold">
+                    {stat.value}
+                  </p>
+
+                  <p className="mt-1 text-sm text-slate-400">
+                    {stat.label}
+                  </p>
                 </motion.div>
               );
             })}
@@ -304,33 +492,63 @@ export default function DashboardPage() {
             transition={{ delay: 0.3 }}
             className="mb-12"
           >
-            <h2 className="mb-6 text-2xl font-bold">Quick Actions</h2>
+            <h2 className="mb-6 text-2xl font-bold">
+              Quick Actions
+            </h2>
+
             <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
               <Link
                 href="/interview"
                 className="group rounded-3xl border border-slate-800 bg-gradient-to-br from-blue-600/10 to-cyan-600/10 p-6 backdrop-blur-xl transition-all duration-300 hover:border-blue-500/40 hover:shadow-lg hover:shadow-blue-500/10"
               >
-                <PlayCircle size={32} className="mb-4 text-blue-400" />
-                <h3 className="text-lg font-bold">Start Interview</h3>
-                <p className="mt-2 text-sm text-slate-400">Begin a new practice interview session</p>
+                <PlayCircle
+                  size={32}
+                  className="mb-4 text-blue-400"
+                />
+
+                <h3 className="text-lg font-bold">
+                  Start Interview
+                </h3>
+
+                <p className="mt-2 text-sm text-slate-400">
+                  Begin a new practice interview session
+                </p>
               </Link>
 
               <Link
                 href="/resume"
                 className="group rounded-3xl border border-slate-800 bg-gradient-to-br from-violet-600/10 to-fuchsia-600/10 p-6 backdrop-blur-xl transition-all duration-300 hover:border-violet-500/40 hover:shadow-lg hover:shadow-violet-500/10"
               >
-                <FileText size={32} className="mb-4 text-violet-400" />
-                <h3 className="text-lg font-bold">Analyze Resume</h3>
-                <p className="mt-2 text-sm text-slate-400">Upload your resume for AI analysis</p>
+                <FileText
+                  size={32}
+                  className="mb-4 text-violet-400"
+                />
+
+                <h3 className="text-lg font-bold">
+                  Analyze Resume
+                </h3>
+
+                <p className="mt-2 text-sm text-slate-400">
+                  Upload your resume for AI analysis
+                </p>
               </Link>
 
               <Link
                 href="/profile"
                 className="group rounded-3xl border border-slate-800 bg-gradient-to-br from-emerald-600/10 to-green-600/10 p-6 backdrop-blur-xl transition-all duration-300 hover:border-emerald-500/40 hover:shadow-lg hover:shadow-emerald-500/10"
               >
-                <User size={32} className="mb-4 text-emerald-400" />
-                <h3 className="text-lg font-bold">View Profile</h3>
-                <p className="mt-2 text-sm text-slate-400">Manage your account settings</p>
+                <User
+                  size={32}
+                  className="mb-4 text-emerald-400"
+                />
+
+                <h3 className="text-lg font-bold">
+                  View Profile
+                </h3>
+
+                <p className="mt-2 text-sm text-slate-400">
+                  Manage your account settings
+                </p>
               </Link>
             </div>
           </motion.div>
@@ -342,15 +560,33 @@ export default function DashboardPage() {
             transition={{ delay: 0.4 }}
             className="mb-12 rounded-3xl border border-slate-800 bg-slate-900/60 p-8 backdrop-blur-xl"
           >
-            <h2 className="mb-6 text-2xl font-bold">Recent Interviews</h2>
+            <div className="mb-6 flex items-center justify-between gap-4">
+              <h2 className="text-2xl font-bold">
+                Recent Interviews
+              </h2>
+
+              {interviews.length > 5 && (
+                <span className="text-sm text-slate-500">
+                  Showing latest 5
+                </span>
+              )}
+            </div>
 
             {interviews.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-12 text-center">
-                <BarChart3 size={48} className="mb-4 text-slate-600" />
-                <p className="text-lg text-slate-400">No interviews completed yet</p>
+                <BarChart3
+                  size={48}
+                  className="mb-4 text-slate-600"
+                />
+
+                <p className="text-lg text-slate-400">
+                  No interviews completed yet
+                </p>
+
                 <p className="mt-2 text-sm text-slate-500">
                   Complete your first interview to see it here
                 </p>
+
                 <Link
                   href="/interview"
                   className="mt-6 inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-blue-600 to-cyan-500 px-6 py-3 font-semibold transition-all duration-300 hover:scale-105"
@@ -363,54 +599,92 @@ export default function DashboardPage() {
               <div className="space-y-4">
                 {interviews.slice(0, 5).map((item) => {
                   const durationMin = item.duration_seconds
-                    ? Math.round(item.duration_seconds / 60)
+                    ? Math.round(
+                        item.duration_seconds / 60
+                      )
                     : 0;
+
                   const durationDisplay =
                     durationMin >= 60
-                      ? `${Math.floor(durationMin / 60)}h ${durationMin % 60}m`
+                      ? `${Math.floor(
+                          durationMin / 60
+                        )}h ${durationMin % 60}m`
                       : `${durationMin} min`;
+
                   return (
                     <div
                       key={item.id}
-                      className="flex flex-col justify-between gap-4 rounded-2xl border border-slate-800 bg-slate-800/40 p-5 sm:flex-row sm:items-center"
+                      className="flex flex-col justify-between gap-4 rounded-2xl border border-slate-800 bg-slate-800/40 p-5 transition-all duration-300 hover:border-slate-700 sm:flex-row sm:items-center"
                     >
-                      <div className="flex-1">
+                      {/* Interview information */}
+                      <div className="min-w-0 flex-1">
                         <div className="flex flex-wrap items-center gap-3">
-                          <span className="text-lg font-semibold text-white">{item.role}</span>
-                          <span className="rounded-full bg-slate-700/60 px-3 py-1 text-xs text-slate-300 capitalize">
+                          <span className="text-lg font-semibold text-white">
+                            {item.role}
+                          </span>
+
+                          <span className="rounded-full bg-slate-700/60 px-3 py-1 text-xs capitalize text-slate-300">
                             {item.interview_type}
                           </span>
-                          <span className="rounded-full bg-blue-500/10 px-3 py-1 text-xs text-blue-400 capitalize">
+
+                          <span className="rounded-full bg-blue-500/10 px-3 py-1 text-xs capitalize text-blue-400">
                             {item.difficulty}
                           </span>
                         </div>
+
                         <div className="mt-2 flex flex-wrap items-center gap-4 text-xs text-slate-400">
                           <span>
-                            {new Date(item.created_at).toLocaleDateString(undefined, {
-                              year: "numeric",
-                              month: "short",
-                              day: "numeric",
-                            })}
+                            {new Date(
+                              item.created_at
+                            ).toLocaleDateString(
+                              undefined,
+                              {
+                                year: "numeric",
+                                month: "short",
+                                day: "numeric",
+                              }
+                            )}
                           </span>
+
                           <span className="flex items-center gap-1">
                             <Clock size={12} />
                             {durationDisplay}
                           </span>
                         </div>
                       </div>
-                      {typeof item.score === "number" && (
-                        <div
-                          className={`rounded-xl px-4 py-2 text-sm font-bold ${
-                            item.score >= 80
-                              ? "border border-green-500/30 bg-green-500/10 text-green-400"
-                              : item.score >= 60
-                              ? "border border-yellow-500/30 bg-yellow-500/10 text-yellow-400"
-                              : "border border-red-500/30 bg-red-500/10 text-red-400"
-                          }`}
+
+                      {/* Score + Delete */}
+                      <div className="flex items-center gap-3">
+                        {typeof item.score === "number" && (
+                          <div
+                            className={`rounded-xl px-4 py-2 text-sm font-bold ${
+                              item.score >= 80
+                                ? "border border-green-500/30 bg-green-500/10 text-green-400"
+                                : item.score >= 60
+                                ? "border border-yellow-500/30 bg-yellow-500/10 text-yellow-400"
+                                : "border border-red-500/30 bg-red-500/10 text-red-400"
+                            }`}
+                          >
+                            {item.score}/100
+                          </div>
+                        )}
+
+                        <button
+                          type="button"
+                          onClick={() =>
+                            handleDeleteClick(item)
+                          }
+                          disabled={deleting}
+                          aria-label={`Delete ${item.role} interview`}
+                          title="Delete interview"
+                          className="group flex h-10 w-10 items-center justify-center rounded-xl border border-slate-700 bg-slate-800/70 text-slate-400 transition-all duration-300 hover:border-red-500/40 hover:bg-red-500/10 hover:text-red-400 disabled:cursor-not-allowed disabled:opacity-50"
                         >
-                          {item.score}/100
-                        </div>
-                      )}
+                          <Trash2
+                            size={17}
+                            className="transition-transform duration-300 group-hover:scale-110"
+                          />
+                        </button>
+                      </div>
                     </div>
                   );
                 })}
@@ -425,46 +699,68 @@ export default function DashboardPage() {
             transition={{ delay: 0.5 }}
             className="rounded-3xl border border-slate-800 bg-slate-900/60 p-8 backdrop-blur-xl"
           >
-            <h2 className="mb-6 text-2xl font-bold">Latest AI Feedback</h2>
+            <h2 className="mb-6 text-2xl font-bold">
+              Latest AI Feedback
+            </h2>
 
             {latestInterview ? (
               <div className="space-y-4">
                 <div className="flex flex-col gap-4 rounded-2xl border border-slate-800 bg-slate-800/40 p-6 sm:flex-row sm:items-center sm:justify-between">
-                  <div>
-                    <div className="flex items-center gap-3">
+                  <div className="min-w-0">
+                    <div className="flex flex-wrap items-center gap-3">
                       <span className="text-xl font-bold text-white">
                         {latestInterview.role}
                       </span>
-                      <span className="rounded-full bg-blue-500/10 px-3 py-1 text-xs font-medium text-blue-400 capitalize">
+
+                      <span className="rounded-full bg-blue-500/10 px-3 py-1 text-xs font-medium capitalize text-blue-400">
                         {latestInterview.difficulty}
                       </span>
                     </div>
+
                     {latestInterview.feedback?.summary && (
                       <p className="mt-3 text-sm leading-relaxed text-slate-300">
                         {latestInterview.feedback.summary}
                       </p>
                     )}
+
                     <p className="mt-2 text-xs text-slate-500">
-                      Completed on {new Date(latestInterview.created_at).toLocaleDateString()}
+                      Completed on{" "}
+                      {new Date(
+                        latestInterview.created_at
+                      ).toLocaleDateString()}
                     </p>
                   </div>
-                  {typeof latestInterview.score === "number" && (
+
+                  {typeof latestInterview.score ===
+                    "number" && (
                     <div className="flex flex-col items-center justify-center rounded-2xl border border-blue-500/30 bg-blue-500/10 px-6 py-4">
                       <span className="text-3xl font-black text-blue-400">
                         {latestInterview.score}
                       </span>
-                      <span className="text-xs text-slate-400">Overall Score</span>
+
+                      <span className="text-xs text-slate-400">
+                        Overall Score
+                      </span>
                     </div>
                   )}
                 </div>
               </div>
             ) : (
               <div className="flex flex-col items-center justify-center py-12 text-center">
-                <Award size={48} className="mb-4 text-slate-600" />
-                <p className="text-lg text-slate-400">No interviews completed yet</p>
-                <p className="mt-2 text-sm text-slate-500">
-                  Complete your first interview to see AI feedback here
+                <Award
+                  size={48}
+                  className="mb-4 text-slate-600"
+                />
+
+                <p className="text-lg text-slate-400">
+                  No interviews completed yet
                 </p>
+
+                <p className="mt-2 text-sm text-slate-500">
+                  Complete your first interview to see AI
+                  feedback here
+                </p>
+
                 <Link
                   href="/interview"
                   className="mt-6 inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-blue-600 to-cyan-500 px-6 py-3 font-semibold transition-all duration-300 hover:scale-105"
@@ -476,6 +772,23 @@ export default function DashboardPage() {
             )}
           </motion.div>
         </div>
+
+        {/* Delete Confirmation Dialog */}
+        <ConfirmDialog
+          open={deleteDialogOpen}
+          title="Delete Interview?"
+          message={
+            interviewToDelete
+              ? `Are you sure you want to delete your "${interviewToDelete.role}" interview? This will permanently remove the interview and its AI feedback. This action cannot be undone.`
+              : "Are you sure you want to delete this interview?"
+          }
+          confirmLabel="Delete Interview"
+          cancelLabel="Keep Interview"
+          variant="danger"
+          loading={deleting}
+          onConfirm={handleConfirmDelete}
+          onCancel={handleCancelDelete}
+        />
       </main>
     </ProtectedRoute>
   );
