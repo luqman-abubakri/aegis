@@ -31,20 +31,27 @@ interface ResumeRecord {
   file_size: number | null;
   file_path: string | null;
   uploaded_at: string;
-  analysis: ResumeAnalysis & { generatedInterview?: ResumeGeneratedInterview } | null;
+  analysis:
+    | (ResumeAnalysis & {
+        generatedInterview?: ResumeGeneratedInterview;
+      })
+    | null;
 }
 
-const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
+const MAX_FILE_SIZE = 5 * 1024 * 1024;
 const RESUME_INTERVIEW_STORAGE_KEY = "aegis_resume_interview";
 
 function formatBytes(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  if (bytes < 1024 * 1024) {
+    return `${(bytes / 1024).toFixed(1)} KB`;
+  }
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
 export default function ResumePage() {
   const { user, loading: authLoading } = useAuth();
+
   const [resumes, setResumes] = useState<ResumeRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
@@ -52,16 +59,26 @@ export default function ResumePage() {
   const [dragActive, setDragActive] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+
   const [analysisStatus, setAnalysisStatus] = useState<string>("Idle");
   const [analysisProgress, setAnalysisProgress] = useState(0);
   const [activeResumeId, setActiveResumeId] = useState<string | null>(null);
   const [analyzing, setAnalyzing] = useState(false);
+
   const [deleting, setDeleting] = useState(false);
-  const [resumeToDelete, setResumeToDelete] = useState<ResumeRecord | null>(null);
-  const [expandedResumeId, setExpandedResumeId] = useState<string | null>(null);
+  const [resumeToDelete, setResumeToDelete] =
+    useState<ResumeRecord | null>(null);
+
+  const [expandedResumeId, setExpandedResumeId] = useState<string | null>(
+    null
+  );
+
   const fileInputRef = useRef<HTMLInputElement>(null);
   const router = useRouter();
 
+  /*
+   * Auto-hide success/error messages
+   */
   useEffect(() => {
     if (!error && !success) {
       return;
@@ -75,9 +92,15 @@ export default function ResumePage() {
     return () => window.clearTimeout(timer);
   }, [error, success]);
 
+  /*
+   * Load resumes
+   */
   useEffect(() => {
     async function loadResumes() {
-      if (!user) return;
+      if (!user) {
+        setLoading(false);
+        return;
+      }
 
       console.log("[Resume] Loading resumes for user:", user.id);
 
@@ -92,7 +115,10 @@ export default function ResumePage() {
           userId: user.id,
           count: data?.length ?? 0,
           error: error
-            ? { message: error.message, code: error.code }
+            ? {
+                message: error.message,
+                code: error.code,
+              }
             : null,
         });
 
@@ -116,10 +142,15 @@ export default function ResumePage() {
     }
 
     if (user) {
-      loadResumes();
+      void loadResumes();
+    } else if (!authLoading) {
+      setLoading(false);
     }
   }, [user, authLoading]);
 
+  /*
+   * Upload and analyze resume
+   */
   const handleFile = useCallback(
     async (file: File) => {
       if (!user) return;
@@ -128,7 +159,10 @@ export default function ResumePage() {
       setSuccess(null);
 
       // Validate file type
-      if (file.type !== "application/pdf" && !file.name.toLowerCase().endsWith(".pdf")) {
+      if (
+        file.type !== "application/pdf" &&
+        !file.name.toLowerCase().endsWith(".pdf")
+      ) {
         setError("Please upload a PDF file only.");
         return;
       }
@@ -143,12 +177,9 @@ export default function ResumePage() {
       setUploadProgress(10);
 
       try {
-        const fileExt = file.name.split(".").pop();
-        const fileName = `${user.id}/${Date.now()}.${fileExt}`;
-        // Path within the "resumes" bucket: {user_id}/{timestamp}.{ext}
-        // The storage RLS policy checks that the first path segment
-        // matches auth.uid(), so we must NOT prefix with "resumes/".
-        const filePath = fileName;
+        const fileExt = file.name.split(".").pop() || "pdf";
+
+        const filePath = `${user.id}/${Date.now()}.${fileExt}`;
 
         console.log("[Resume] Uploading file:", {
           userId: user.id,
@@ -157,89 +188,118 @@ export default function ResumePage() {
           bucketPath: filePath,
         });
 
-        // Simulate progress while uploading (Supabase JS SDK does not expose progress events)
-        const progressInterval = setInterval(() => {
+        /*
+         * Simulated upload progress
+         */
+        const progressInterval = window.setInterval(() => {
           setUploadProgress((prev) => (prev < 90 ? prev + 5 : prev));
         }, 200);
 
-        // Upload to Supabase Storage
-        const { data: uploadData, error: uploadError } = await supabase.storage
-          .from("resumes")
-          .upload(filePath, file, {
+        /*
+         * Upload to Supabase Storage
+         */
+        const { data: uploadData, error: uploadError } =
+          await supabase.storage.from("resumes").upload(filePath, file, {
             cacheControl: "3600",
             upsert: false,
           });
 
-        clearInterval(progressInterval);
+        window.clearInterval(progressInterval);
 
         console.log("[Resume] Storage upload response:", {
           path: uploadData?.path ?? null,
           error: uploadError
-            ? { message: uploadError.message, name: uploadError.name }
+            ? {
+                message: uploadError.message,
+                name: uploadError.name,
+              }
             : null,
         });
 
         if (uploadError) {
-          throw new Error(`Storage upload failed: ${uploadError.message}`);
+          throw new Error(
+            `Storage upload failed: ${uploadError.message}`
+          );
         }
 
-        // Check for existing resume to prevent duplicates (UPSERT pattern)
-        const { data: existingResume } = await supabase
-          .from("resume_uploads")
-          .select("id, file_path")
-          .eq("user_id", user.id)
-          .maybeSingle();
+        /*
+         * Check if user already has a resume
+         */
+        const { data: existingResume, error: existingResumeError } =
+          await supabase
+            .from("resume_uploads")
+            .select("id, file_path")
+            .eq("user_id", user.id)
+            .maybeSingle();
+
+        if (existingResumeError) {
+          console.error(
+            "[Resume] Existing resume lookup failed:",
+            existingResumeError
+          );
+        }
 
         let resumeId: string;
 
+        /*
+         * Update existing resume
+         */
         if (existingResume) {
-          // Update existing record instead of creating a duplicate
-          console.log("[Resume] Updating existing resume record:", {
+          console.log("[Resume] Updating existing resume:", {
             existingId: existingResume.id,
             oldFilePath: existingResume.file_path,
           });
 
-          // Delete old file from storage if path differs
-          if (existingResume.file_path && existingResume.file_path !== filePath) {
+          /*
+           * Delete old storage file
+           */
+          if (
+            existingResume.file_path &&
+            existingResume.file_path !== filePath
+          ) {
             const { error: oldFileDeleteError } = await supabase.storage
               .from("resumes")
               .remove([existingResume.file_path]);
 
             if (oldFileDeleteError) {
-              console.error("[Resume] Failed to delete old storage file:", {
-                message: oldFileDeleteError.message,
-                oldPath: existingResume.file_path,
-              });
+              console.error(
+                "[Resume] Failed to delete old storage file:",
+                oldFileDeleteError
+              );
             }
           }
 
-          const { data: updateData, error: updateError } = await supabase
-            .from("resume_uploads")
-            .update({
-              file_path: filePath,
-              file_name: file.name,
-              file_size: file.size,
-              analysis: null,
-              parsed_data: null,
-            })
-            .eq("id", existingResume.id)
-            .select("id")
-            .single();
-
-          console.log("[Resume] Update response:", {
-            id: updateData?.id ?? null,
-            error: updateError
-              ? { message: updateError.message, code: updateError.code }
-              : null,
-          });
+          const { data: updateData, error: updateError } =
+            await supabase
+              .from("resume_uploads")
+              .update({
+                file_path: filePath,
+                file_name: file.name,
+                file_size: file.size,
+                analysis: null,
+                parsed_data: null,
+              })
+              .eq("id", existingResume.id)
+              .select("id")
+              .single();
 
           if (updateError) {
-            throw new Error(`Database update failed: ${updateError.message}`);
+            throw new Error(
+              `Database update failed: ${updateError.message}`
+            );
+          }
+
+          if (!updateData?.id) {
+            throw new Error(
+              "Database update succeeded but no resume ID was returned."
+            );
           }
 
           resumeId = updateData.id;
         } else {
-          // No existing resume, insert new record
+          /*
+           * Insert new resume
+           */
           const insertPayload = {
             user_id: user.id,
             file_path: filePath,
@@ -247,10 +307,7 @@ export default function ResumePage() {
             file_size: file.size,
           };
 
-          console.log("[Resume] Inserting metadata:", {
-            table: "resume_uploads",
-            payload: insertPayload,
-          });
+          console.log("[Resume] Inserting metadata:", insertPayload);
 
           const { data: insertData, error: dbError } = await supabase
             .from("resume_uploads")
@@ -258,34 +315,51 @@ export default function ResumePage() {
             .select("id")
             .single();
 
-          console.log("[Resume] Insert response:", {
-            id: insertData?.id ?? null,
-            error: dbError
-              ? { message: dbError.message, code: dbError.code }
-              : null,
-          });
-
           if (dbError) {
-            throw new Error(`Database insert failed: ${dbError.message}`);
+            throw new Error(
+              `Database insert failed: ${dbError.message}`
+            );
+          }
+
+          if (!insertData?.id) {
+            throw new Error(
+              "Database insert succeeded but no resume ID was returned."
+            );
           }
 
           resumeId = insertData.id;
         }
 
-        // Upload complete — switch to analyzing state
+        /*
+         * Start analysis state
+         */
         setUploading(false);
         setAnalyzing(true);
-        setSuccess("Resume uploaded successfully. Analyzing your resume now...");
+        setSuccess(
+          "Resume uploaded successfully. Analyzing your resume now..."
+        );
         setUploadProgress(100);
         setActiveResumeId(resumeId);
         setAnalysisStatus("Analyzing Resume...");
         setAnalysisProgress(40);
 
+        /*
+         * Get current session
+         */
+        const {
+          data: { session },
+        } = await supabase.auth.getSession();
+
+        const accessToken = session?.access_token ?? "";
+
+        /*
+         * Analyze resume
+         */
         const response = await fetch("/api/resume", {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            Authorization: `Bearer ${await supabase.auth.getSession().then(({ data }) => data.session?.access_token ?? "")}`,
+            Authorization: `Bearer ${accessToken}`,
           },
           body: JSON.stringify({
             action: "analyze",
@@ -297,15 +371,23 @@ export default function ResumePage() {
 
         if (!response.ok) {
           const payload = await response.json().catch(() => null);
-          throw new Error(payload?.error ?? "Resume analysis failed.");
+
+          throw new Error(
+            payload?.error ?? "Resume analysis failed."
+          );
         }
 
         await response.json();
+
         setAnalysisStatus("Complete");
         setAnalysisProgress(100);
-        setSuccess("Resume analyzed successfully. Your interview has been prepared.");
+        setSuccess(
+          "Resume analyzed successfully. Your interview has been prepared."
+        );
 
-        // Refresh the list
+        /*
+         * Refresh resume list
+         */
         const { data: refreshed, error: refreshError } = await supabase
           .from("resume_uploads")
           .select("*")
@@ -328,18 +410,29 @@ export default function ResumePage() {
           stack: err instanceof Error ? err.stack : undefined,
           raw: err,
         });
-        const message = err instanceof Error ? err.message : "Failed to upload resume.";
+
+        const message =
+          err instanceof Error
+            ? err.message
+            : "Failed to upload resume.";
+
         setError(message);
         setAnalysisStatus("Failed");
       } finally {
         setUploading(false);
         setAnalyzing(false);
-        setTimeout(() => setUploadProgress(0), 1000);
+
+        window.setTimeout(() => {
+          setUploadProgress(0);
+        }, 1000);
       }
     },
     [user]
   );
 
+  /*
+   * Analyze an existing resume
+   */
   const handleAnalyze = useCallback(
     async (resume: ResumeRecord) => {
       if (!user) return;
@@ -359,8 +452,11 @@ export default function ResumePage() {
       });
 
       try {
-        const { data: sessionData } = await supabase.auth.getSession();
-        const accessToken = sessionData.session?.access_token ?? "";
+        const {
+          data: { session },
+        } = await supabase.auth.getSession();
+
+        const accessToken = session?.access_token ?? "";
 
         const response = await fetch("/api/resume", {
           method: "POST",
@@ -378,15 +474,23 @@ export default function ResumePage() {
 
         if (!response.ok) {
           const payload = await response.json().catch(() => null);
-          throw new Error(payload?.error ?? "Resume analysis failed.");
+
+          throw new Error(
+            payload?.error ?? "Resume analysis failed."
+          );
         }
 
         await response.json();
+
         setAnalysisStatus("Complete");
         setAnalysisProgress(100);
-        setSuccess("Resume analyzed successfully. Your interview has been prepared.");
+        setSuccess(
+          "Resume analyzed successfully. Your interview has been prepared."
+        );
 
-        // Refresh the list
+        /*
+         * Refresh list
+         */
         const { data: refreshed, error: refreshError } = await supabase
           .from("resume_uploads")
           .select("*")
@@ -410,28 +514,41 @@ export default function ResumePage() {
           stack: err instanceof Error ? err.stack : undefined,
           raw: err,
         });
-        const message = err instanceof Error ? err.message : "Failed to analyze resume.";
+
+        const message =
+          err instanceof Error
+            ? err.message
+            : "Failed to analyze resume.";
+
         setError(message);
         setAnalysisStatus("Failed");
       } finally {
         setAnalyzing(false);
-        setTimeout(() => setAnalysisProgress(0), 1000);
+
+        window.setTimeout(() => {
+          setAnalysisProgress(0);
+        }, 1000);
       }
     },
     [user]
   );
 
+  /*
+   * Drag and drop
+   */
   const handleDrop = useCallback(
     (e: React.DragEvent) => {
       e.preventDefault();
       e.stopPropagation();
+
       setDragActive(false);
 
       if (uploading || analyzing) return;
 
       const file = e.dataTransfer.files?.[0];
+
       if (file) {
-        handleFile(file);
+        void handleFile(file);
       }
     },
     [handleFile, uploading, analyzing]
@@ -440,25 +557,31 @@ export default function ResumePage() {
   const handleDragOver = useCallback((e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
+
     setDragActive(true);
   }, []);
 
   const handleDragLeave = useCallback((e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
+
     setDragActive(false);
   }, []);
 
   const handleInputChange = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
       const file = e.target.files?.[0];
+
       if (file) {
-        handleFile(file);
+        void handleFile(file);
       }
     },
     [handleFile]
   );
 
+  /*
+   * Delete resume
+   */
   const handleDelete = useCallback(
     async (resume: ResumeRecord) => {
       if (!user) return;
@@ -472,46 +595,47 @@ export default function ResumePage() {
       });
 
       try {
-        // Delete from storage if path exists
+        /*
+         * Delete storage file
+         */
         if (resume.file_path) {
           const { error: storageDeleteError } = await supabase.storage
             .from("resumes")
             .remove([resume.file_path]);
 
-          console.log("[Resume] Storage delete response:", {
-            error: storageDeleteError
-              ? { message: storageDeleteError.message, name: storageDeleteError.name }
-              : null,
-          });
-
           if (storageDeleteError) {
-            console.error("[Resume] Storage delete failed:", {
-              message: storageDeleteError.message,
-            });
-            // Continue to delete the DB record even if storage delete fails
+            console.error(
+              "[Resume] Storage delete failed:",
+              storageDeleteError
+            );
           }
         }
 
-        // Delete from database
-        const { data: deleteData, error: deleteError } = await supabase
-          .from("resume_uploads")
-          .delete()
-          .eq("id", resume.id)
-          .select("id")
-          .single();
+        /*
+         * Delete database record
+         */
+        const { data: deleteData, error: deleteError } =
+          await supabase
+            .from("resume_uploads")
+            .delete()
+            .eq("id", resume.id)
+            .select("id")
+            .single();
+
+        if (deleteError) {
+          throw new Error(
+            `Database delete failed: ${deleteError.message}`
+          );
+        }
 
         console.log("[Resume] DB delete response:", {
           deletedId: deleteData?.id ?? null,
-          error: deleteError
-            ? { message: deleteError.message, code: deleteError.code }
-            : null,
         });
 
-        if (deleteError) {
-          throw new Error(`Database delete failed: ${deleteError.message}`);
-        }
+        setResumes((prev) =>
+          prev.filter((r) => r.id !== resume.id)
+        );
 
-        setResumes((prev) => prev.filter((r) => r.id !== resume.id));
         setSuccess("Resume deleted successfully.");
       } catch (err: unknown) {
         console.error("[Resume] Delete failed:", {
@@ -521,7 +645,12 @@ export default function ResumePage() {
           stack: err instanceof Error ? err.stack : undefined,
           raw: err,
         });
-        const message = err instanceof Error ? err.message : "Failed to delete resume.";
+
+        const message =
+          err instanceof Error
+            ? err.message
+            : "Failed to delete resume.";
+
         setError(message);
       } finally {
         setDeleting(false);
@@ -531,37 +660,58 @@ export default function ResumePage() {
     [user]
   );
 
-  const goToResumeInterview = useCallback((resume: ResumeRecord) => {
-    const analysis = resume.analysis;
-    const generatedInterview = analysis?.generatedInterview;
-    window.localStorage.setItem(
-      RESUME_INTERVIEW_STORAGE_KEY,
-      JSON.stringify({
-        title: generatedInterview?.title ?? "Resume-Based Interview",
-        description: generatedInterview?.description ?? "",
-        questions: generatedInterview?.questions ?? [],
-      })
-    );
-    
-    const role = encodeURIComponent(
-      analysis?.professionalTitle || analysis?.careerDomain || "Candidate"
-    );
+  /*
+   * Start resume-generated interview
+   */
+  const goToResumeInterview = useCallback(
+    (resume: ResumeRecord) => {
+      const analysis = resume.analysis;
 
-    router.push(
-      `/interview/session?role=${role}&difficulty=intermediate&interviewType=technical&mode=text&resumeInterview=1`
-    );
-  }, [router]);
+      const generatedInterview = analysis?.generatedInterview;
 
+      window.localStorage.setItem(
+        RESUME_INTERVIEW_STORAGE_KEY,
+        JSON.stringify({
+          title:
+            generatedInterview?.title ??
+            "Resume-Based Interview",
+          description:
+            generatedInterview?.description ?? "",
+          questions:
+            generatedInterview?.questions ?? [],
+        })
+      );
+
+      const role = encodeURIComponent(
+        analysis?.professionalTitle ||
+          analysis?.careerDomain ||
+          "Candidate"
+      );
+
+      router.push(
+        `/interview/session?role=${role}&difficulty=intermediate&interviewType=technical&mode=text&resumeInterview=1`
+      );
+    },
+    [router]
+  );
+
+  /*
+   * View PDF
+   */
   const handleViewPdf = async (resume: ResumeRecord) => {
     if (!resume.file_path) return;
+
     try {
       const { data, error } = await supabase.storage
         .from("resumes")
-        .createSignedUrl(resume.file_path, 60); // 60 seconds
-      
-      if (error) throw error;
+        .createSignedUrl(resume.file_path, 60);
+
+      if (error) {
+        throw error;
+      }
+
       if (data?.signedUrl) {
-        window.open(data.signedUrl, '_blank');
+        window.open(data.signedUrl, "_blank");
       }
     } catch (error) {
       console.error("Failed to open PDF", error);
@@ -569,11 +719,17 @@ export default function ResumePage() {
     }
   };
 
+  /*
+   * Loading state
+   */
   if (authLoading || loading) {
     return (
       <ProtectedRoute>
         <div className="flex min-h-screen items-center justify-center bg-[#020817]">
-          <LoadingSpinner size="lg" text="Loading resume page..." />
+          <LoadingSpinner
+            size="lg"
+            text="Loading resume page..."
+          />
         </div>
       </ProtectedRoute>
     );
@@ -581,8 +737,9 @@ export default function ResumePage() {
 
   return (
     <ProtectedRoute>
-      <main className="min-h-screen overflow-x-hidden bg-[#020817] pt-28 pb-20 text-white">
+      <main className="min-h-screen overflow-x-hidden bg-[#020817] pb-20 pt-28 text-white">
         <div className="mx-auto max-w-4xl px-5 sm:px-6 lg:px-8">
+          {/* Back */}
           <Link
             href="/dashboard"
             className="mb-8 inline-flex items-center gap-2 text-sm text-slate-400 transition-colors hover:text-white"
@@ -597,28 +754,38 @@ export default function ResumePage() {
               <FileText size={16} />
               Resume Analysis
             </div>
+
             <h1 className="text-3xl font-black sm:text-4xl md:text-5xl">
               Upload Your{" "}
               <span className="bg-gradient-to-r from-violet-400 to-fuchsia-400 bg-clip-text text-transparent">
                 Resume
               </span>
             </h1>
+
             <p className="mt-4 text-lg text-slate-400">
-              Upload your PDF resume and we will store it securely for analysis.
+              Upload your PDF resume and we will store it
+              securely for analysis.
             </p>
           </div>
 
-          {/* Error / Success messages */}
+          {/* Error */}
           {error && (
             <div className="mb-6 flex items-center gap-3 rounded-xl border border-red-500/30 bg-red-500/10 p-4 text-sm text-red-400">
-              <AlertTriangle size={18} className="flex-shrink-0" />
+              <AlertTriangle
+                size={18}
+                className="flex-shrink-0"
+              />
               <span>{error}</span>
             </div>
           )}
 
+          {/* Success */}
           {success && (
             <div className="mb-6 flex items-center gap-3 rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-4 text-sm text-emerald-400">
-              <CheckCircle size={18} className="flex-shrink-0" />
+              <CheckCircle
+                size={18}
+                className="flex-shrink-0"
+              />
               <span>{success}</span>
             </div>
           )}
@@ -640,65 +807,109 @@ export default function ResumePage() {
               accept=".pdf,application/pdf"
               onChange={handleInputChange}
               className="hidden"
-              disabled={uploading}
+              disabled={uploading || analyzing}
             />
 
             {uploading ? (
               <div className="flex flex-col items-center gap-4">
-                <Loader2 size={48} className="animate-spin text-violet-400" />
-                <p className="text-lg font-semibold text-white">Uploading...</p>
+                <Loader2
+                  size={48}
+                  className="animate-spin text-violet-400"
+                />
+
+                <p className="text-lg font-semibold text-white">
+                  Uploading...
+                </p>
+
                 <div className="h-2 w-full max-w-xs overflow-hidden rounded-full bg-slate-800">
                   <div
                     className="h-full rounded-full bg-gradient-to-r from-violet-500 to-fuchsia-500 transition-all duration-300"
-                    style={{ width: `${uploadProgress}%` }}
+                    style={{
+                      width: `${uploadProgress}%`,
+                    }}
                   />
                 </div>
-                <p className="text-sm text-slate-400">{uploadProgress}%</p>
+
+                <p className="text-sm text-slate-400">
+                  {uploadProgress}%
+                </p>
               </div>
             ) : analyzing ? (
               <div className="flex flex-col items-center gap-4">
-                <Loader2 size={48} className="animate-spin text-violet-400" />
-                <p className="text-lg font-semibold text-white">Analyzing Resume...</p>
+                <Loader2
+                  size={48}
+                  className="animate-spin text-violet-400"
+                />
+
+                <p className="text-lg font-semibold text-white">
+                  Analyzing Resume...
+                </p>
+
                 <div className="h-2 w-full max-w-xs overflow-hidden rounded-full bg-slate-800">
                   <div
                     className="h-full rounded-full bg-gradient-to-r from-violet-500 via-fuchsia-500 to-cyan-500 transition-all duration-300"
-                    style={{ width: `${analysisProgress}%` }}
+                    style={{
+                      width: `${analysisProgress}%`,
+                    }}
                   />
                 </div>
-                <p className="text-sm text-slate-400">{analysisStatus}</p>
+
+                <p className="text-sm text-slate-400">
+                  {analysisStatus}
+                </p>
               </div>
             ) : (
               <div className="flex flex-col items-center gap-4">
                 <div className="flex h-20 w-20 items-center justify-center rounded-2xl bg-gradient-to-br from-violet-600 to-fuchsia-500 shadow-lg shadow-violet-600/20">
-                  <UploadCloud size={40} className="text-white" />
+                  <UploadCloud
+                    size={40}
+                    className="text-white"
+                  />
                 </div>
+
                 <div>
                   <p className="text-xl font-bold">
                     Drag & drop your resume here
                   </p>
+
                   <p className="mt-2 text-sm text-slate-400">
                     or click to browse files
                   </p>
                 </div>
+
                 <button
-                  onClick={() => fileInputRef.current?.click()}
+                  type="button"
+                  onClick={() =>
+                    fileInputRef.current?.click()
+                  }
                   className="mt-2 inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-violet-600 to-fuchsia-500 px-6 py-3 font-semibold text-white transition-all duration-300 hover:scale-105 hover:shadow-lg hover:shadow-violet-500/20"
                 >
                   <UploadCloud size={18} />
                   Select PDF File
                 </button>
-                <p className="text-xs text-slate-500">PDF only · Max 5MB</p>
+
+                <p className="text-xs text-slate-500">
+                  PDF only · Max 5MB
+                </p>
               </div>
             )}
           </div>
 
+          {/* Analysis Pipeline */}
           {activeResumeId && (
             <div className="mb-8 min-w-0 overflow-hidden rounded-3xl border border-slate-800 bg-slate-900/70 p-6 shadow-lg shadow-slate-950/20 backdrop-blur-xl">
               <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
                 <div className="min-w-0">
-                  <p className="text-sm font-semibold text-violet-300">Resume Analysis Pipeline</p>
-                  <p className="text-sm text-slate-400">Uploading, extracting text, analyzing, and generating your interview.</p>
+                  <p className="text-sm font-semibold text-violet-300">
+                    Resume Analysis Pipeline
+                  </p>
+
+                  <p className="text-sm text-slate-400">
+                    Uploading, extracting text, analyzing,
+                    and generating your interview.
+                  </p>
                 </div>
+
                 <div className="rounded-full border border-violet-500/20 bg-violet-500/10 px-3 py-1 text-xs font-medium text-violet-300">
                   {analysisStatus}
                 </div>
@@ -707,7 +918,9 @@ export default function ResumePage() {
               <div className="h-2 overflow-hidden rounded-full bg-slate-800">
                 <div
                   className="h-full rounded-full bg-gradient-to-r from-violet-500 via-fuchsia-500 to-cyan-500 transition-all duration-300"
-                  style={{ width: `${analysisProgress}%` }}
+                  style={{
+                    width: `${analysisProgress}%`,
+                  }}
                 />
               </div>
 
@@ -719,9 +932,19 @@ export default function ResumePage() {
                   "Generating Interview...",
                   "Complete",
                 ].map((step, index) => {
-                  const isDone = index < (analysisStatus === "Complete" ? 5 : analysisProgress >= (index + 1) * 20 ? index + 1 : 0);
+                  const isComplete =
+                    analysisStatus === "Complete" ||
+                    analysisProgress >= (index + 1) * 20;
+
                   return (
-                    <div key={step} className={`rounded-2xl border px-3 py-2 ${isDone ? "border-violet-500/30 bg-violet-500/10 text-violet-200" : "border-slate-800 bg-slate-950/70 text-slate-400"}`}>
+                    <div
+                      key={step}
+                      className={`rounded-2xl border px-3 py-2 ${
+                        isComplete
+                          ? "border-violet-500/30 bg-violet-500/10 text-violet-200"
+                          : "border-slate-800 bg-slate-950/70 text-slate-400"
+                      }`}
+                    >
                       {step}
                     </div>
                   );
@@ -734,9 +957,16 @@ export default function ResumePage() {
           <div className="rounded-3xl border border-slate-800 bg-slate-900/60 p-6 backdrop-blur-xl sm:p-8">
             <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div>
-                <h2 className="text-xl font-bold">Uploaded Resumes</h2>
-                <p className="text-sm text-slate-400">Review your resumes and launch a tailored interview instantly.</p>
+                <h2 className="text-xl font-bold">
+                  Uploaded Resumes
+                </h2>
+
+                <p className="text-sm text-slate-400">
+                  Review your resumes and launch a tailored
+                  interview instantly.
+                </p>
               </div>
+
               <div className="rounded-full border border-slate-700 bg-slate-800/70 px-3 py-1 text-sm text-slate-400">
                 {resumes.length} uploaded
               </div>
@@ -744,225 +974,511 @@ export default function ResumePage() {
 
             {resumes.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-12 text-center">
-                <FileText size={48} className="mb-4 text-slate-600" />
-                <p className="text-lg text-slate-400">No resumes uploaded yet</p>
-                <p className="mt-2 text-sm text-slate-500">Upload your first resume to get started</p>
+                <FileText
+                  size={48}
+                  className="mb-4 text-slate-600"
+                />
+
+                <p className="text-lg text-slate-400">
+                  No resumes uploaded yet
+                </p>
+
+                <p className="mt-2 text-sm text-slate-500">
+                  Upload your first resume to get started
+                </p>
               </div>
             ) : (
               <div className="space-y-4">
                 {resumes.map((resume) => {
-                  const analysis = resume.analysis as (ResumeAnalysis & { generatedInterview?: ResumeGeneratedInterview }) | null;
+                  const analysis = resume.analysis;
+
                   const hasAnalysis = Boolean(analysis);
+
+                  const isExpanded =
+                    expandedResumeId === resume.id;
+
                   return (
-                  return (
-                    <div key={resume.id} className="space-y-2">
-                      <div
-                        className="flex flex-col gap-4 rounded-2xl border border-slate-800 bg-slate-800/40 p-4 sm:flex-row sm:items-center sm:justify-between"
-                      >
-                      <div className="flex items-start gap-4">
-                        <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-xl bg-violet-500/10 text-violet-400">
-                          <FileCheck2 size={24} />
-                        </div>
-                        <div className="min-w-0 flex-1">
-                          <p className="break-words font-semibold text-white">{resume.file_name || "Untitled"}</p>
-                          <div className="mt-1 flex flex-wrap items-center gap-3 text-xs text-slate-400">
-                            {resume.file_size && <span>{formatBytes(resume.file_size)}</span>}
-                            <span>
-                              {new Date(resume.uploaded_at).toLocaleDateString(undefined, {
-                                year: "numeric",
-                                month: "short",
-                                day: "numeric",
-                              })}
-                            </span>
+                    <div
+                      key={resume.id}
+                      className="space-y-2"
+                    >
+                      {/* Resume Card */}
+                      <div className="flex flex-col gap-4 rounded-2xl border border-slate-800 bg-slate-800/40 p-4 sm:flex-row sm:items-center sm:justify-between">
+                        <div className="flex min-w-0 items-start gap-4">
+                          <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-xl bg-violet-500/10 text-violet-400">
+                            <FileCheck2 size={24} />
                           </div>
-                          {hasAnalysis && (
-                            <div className="mt-3 flex flex-wrap gap-2 text-xs text-slate-400">
-                              <span className="rounded-full border border-emerald-500/20 bg-emerald-500/10 px-2.5 py-1 text-emerald-300">
-                                Score {analysis?.overallScore ?? 0}
-                              </span>
-                              <span className="rounded-full border border-cyan-500/20 bg-cyan-500/10 px-2.5 py-1 text-cyan-300">
-                                ATS {analysis?.atsScore ?? 0}
-                              </span>
-                              {analysis?.generatedInterview?.questions?.length ? (
-                                <span className="rounded-full border border-violet-500/20 bg-violet-500/10 px-2.5 py-1 text-violet-300">
-                                  {analysis.generatedInterview.questions.length} questions ready
+
+                          <div className="min-w-0 flex-1">
+                            <p className="break-words font-semibold text-white">
+                              {resume.file_name ||
+                                "Untitled"}
+                            </p>
+
+                            <div className="mt-1 flex flex-wrap items-center gap-3 text-xs text-slate-400">
+                              {resume.file_size && (
+                                <span>
+                                  {formatBytes(
+                                    resume.file_size
+                                  )}
                                 </span>
-                              ) : null}
+                              )}
+
+                              <span>
+                                {new Date(
+                                  resume.uploaded_at
+                                ).toLocaleDateString(
+                                  undefined,
+                                  {
+                                    year: "numeric",
+                                    month: "short",
+                                    day: "numeric",
+                                  }
+                                )}
+                              </span>
                             </div>
+
+                            {hasAnalysis && (
+                              <div className="mt-3 flex flex-wrap gap-2 text-xs">
+                                <span className="rounded-full border border-emerald-500/20 bg-emerald-500/10 px-2.5 py-1 text-emerald-300">
+                                  Score{" "}
+                                  {analysis?.overallScore ??
+                                    0}
+                                </span>
+
+                                <span className="rounded-full border border-cyan-500/20 bg-cyan-500/10 px-2.5 py-1 text-cyan-300">
+                                  ATS{" "}
+                                  {analysis?.atsScore ?? 0}
+                                </span>
+
+                                {analysis?.generatedInterview
+                                  ?.questions?.length ? (
+                                  <span className="rounded-full border border-violet-500/20 bg-violet-500/10 px-2.5 py-1 text-violet-300">
+                                    {
+                                      analysis
+                                        .generatedInterview
+                                        .questions
+                                        .length
+                                    }{" "}
+                                    questions ready
+                                  </span>
+                                ) : null}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Actions */}
+                        <div className="flex w-full flex-wrap gap-2 sm:w-auto">
+                          {hasAnalysis ? (
+                            <button
+                              type="button"
+                              onClick={() =>
+                                goToResumeInterview(
+                                  resume
+                                )
+                              }
+                              disabled={
+                                analyzing ||
+                                deleting ||
+                                uploading
+                              }
+                              className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-violet-500/20 bg-violet-500/10 px-4 py-2 text-sm font-semibold text-violet-200 transition-all duration-300 hover:bg-violet-500/20 disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"
+                            >
+                              <PlayCircle size={16} />
+                              Resume Interview
+                            </button>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={() =>
+                                void handleAnalyze(
+                                  resume
+                                )
+                              }
+                              disabled={
+                                analyzing ||
+                                deleting ||
+                                uploading
+                              }
+                              className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-slate-700 bg-slate-800/70 px-4 py-2 text-sm font-semibold text-slate-200 transition-all duration-300 hover:border-violet-500/50 disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"
+                            >
+                              {analyzing &&
+                              activeResumeId ===
+                                resume.id ? (
+                                <>
+                                  <Loader2
+                                    size={16}
+                                    className="animate-spin"
+                                  />
+                                  Analyzing...
+                                </>
+                              ) : (
+                                <>
+                                  <BrainCircuit size={16} />
+                                  Analyze
+                                </>
+                              )}
+                            </button>
+                          )}
+
+                          <button
+                            type="button"
+                            onClick={() =>
+                              void handleViewPdf(resume)
+                            }
+                            disabled={
+                              analyzing ||
+                              deleting ||
+                              uploading
+                            }
+                            className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-blue-500/30 bg-blue-500/10 px-4 py-2 text-sm font-semibold text-blue-400 transition-all duration-300 hover:bg-blue-500/20 disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"
+                          >
+                            <Eye size={16} />
+                            View PDF
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setResumeToDelete(resume)
+                            }
+                            disabled={
+                              analyzing ||
+                              deleting ||
+                              uploading
+                            }
+                            className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-2 text-sm font-semibold text-red-400 transition-all duration-300 hover:bg-red-500/20 disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"
+                          >
+                            <Trash2 size={16} />
+                            Delete
+                          </button>
+
+                          {hasAnalysis && (
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setExpandedResumeId(
+                                  isExpanded
+                                    ? null
+                                    : resume.id
+                                )
+                              }
+                              className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-slate-700 bg-slate-800/50 px-4 py-2 text-sm font-semibold text-slate-300 transition-all duration-300 hover:bg-slate-700/50 sm:w-auto"
+                            >
+                              {isExpanded ? (
+                                <>
+                                  <ChevronUp size={16} />
+                                  Hide Details
+                                </>
+                              ) : (
+                                <>
+                                  <ChevronDown size={16} />
+                                  Show Details
+                                </>
+                              )}
+                            </button>
                           )}
                         </div>
                       </div>
 
-                      <div className="flex w-full flex-wrap gap-2 sm:w-auto">
-                        {hasAnalysis ? (
-                          <button
-                            onClick={() => goToResumeInterview(resume)}
-                            disabled={analyzing || deleting || uploading}
-                            className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-violet-500/20 bg-violet-500/10 px-4 py-2 text-sm font-semibold text-violet-200 transition-all duration-300 hover:bg-violet-500/20 disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"
-                          >
-                            <PlayCircle size={16} />
-                            Resume Interview
-                          </button>
-                        ) : (
-                          <button
-                            onClick={() => void handleAnalyze(resume)}
-                            disabled={analyzing || deleting || uploading}
-                            className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-slate-700 bg-slate-800/70 px-4 py-2 text-sm font-semibold text-slate-200 transition-all duration-300 hover:border-violet-500/50 disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"
-                          >
-                            {analyzing && activeResumeId === resume.id ? (
-                              <>
-                                <Loader2 size={16} className="animate-spin" />
-                                Analyzing...
-                              </>
-                            ) : (
-                              <>
-                                <BrainCircuit size={16} />
-                                Analyze
-                              </>
-                            )}
-                          </button>
-                        )}
-                        <button
-                          onClick={() => handleViewPdf(resume)}
-                          disabled={analyzing || deleting || uploading}
-                          className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-blue-500/30 bg-blue-500/10 px-4 py-2 text-sm font-semibold text-blue-400 transition-all duration-300 hover:bg-blue-500/20 disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"
-                        >
-                          <Eye size={16} />
-                          View PDF
-                        </button>
-                        <button
-                          onClick={() => setResumeToDelete(resume)}
-                          disabled={analyzing || deleting || uploading}
-                          className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-2 text-sm font-semibold text-red-400 transition-all duration-300 hover:bg-red-500/20 disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"
-                        >
-                          <Trash2 size={16} />
-                          Delete
-                        </button>
-                        {hasAnalysis && (
-                          <button
-                            onClick={() => setExpandedResumeId(expandedResumeId === resume.id ? null : resume.id)}
-                            className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-slate-700 bg-slate-800/50 px-4 py-2 text-sm font-semibold text-slate-300 transition-all duration-300 hover:bg-slate-700/50 sm:w-auto"
-                          >
-                            {expandedResumeId === resume.id ? (
-                              <>
-                                <ChevronUp size={16} />
-                                Hide Details
-                              </>
-                            ) : (
-                              <>
-                                <ChevronDown size={16} />
-                                Show Details
-                              </>
-                            )}
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                    {hasAnalysis && expandedResumeId === resume.id && (
-                      <div className="mt-2 rounded-2xl border border-slate-800 bg-slate-900/50 p-6 text-sm text-slate-300 shadow-inner">
-                        <div className="grid gap-6 md:grid-cols-2">
-                          <div>
-                            <h3 className="mb-2 text-lg font-bold text-violet-300">Profile</h3>
-                            <p><strong>Name:</strong> {analysis?.candidateName || "N/A"}</p>
-                            <p><strong>Title:</strong> {analysis?.professionalTitle || "N/A"}</p>
-                            <p><strong>Domain:</strong> {analysis?.careerDomain || "N/A"}</p>
-                            <p><strong>Level:</strong> {analysis?.careerLevel || "N/A"}</p>
-                            {analysis?.summary && <p className="mt-2 text-slate-400">{analysis.summary}</p>}
-                          </div>
-                          <div>
-                            <h3 className="mb-2 text-lg font-bold text-emerald-300">Skills</h3>
-                            <div className="mb-2 flex flex-wrap gap-2">
-                              {analysis?.technicalSkills?.map((skill, idx) => (
-                                <span key={idx} className="rounded border border-emerald-500/20 bg-emerald-500/10 px-2 py-1 text-xs">{skill}</span>
-                              ))}
-                              {analysis?.softSkills?.map((skill, idx) => (
-                                <span key={idx} className="rounded border border-cyan-500/20 bg-cyan-500/10 px-2 py-1 text-xs">{skill}</span>
-                              ))}
-                            </div>
-                            {analysis?.missingSkills && analysis.missingSkills.length > 0 && (
-                              <>
-                                <h4 className="mt-4 mb-1 text-xs font-semibold text-red-300">Missing Skills</h4>
-                                <div className="flex flex-wrap gap-2">
-                                  {analysis.missingSkills.map((skill, idx) => (
-                                    <span key={idx} className="rounded border border-red-500/20 bg-red-500/10 px-2 py-1 text-xs text-red-300">{skill}</span>
-                                  ))}
-                                </div>
-                              </>
-                            )}
-                          </div>
-                        </div>
-
-                        <div className="mt-6 grid gap-6 md:grid-cols-2">
-                          {analysis?.strengths && analysis.strengths.length > 0 && (
+                      {/* Expanded Analysis */}
+                      {hasAnalysis && isExpanded && (
+                        <div className="mt-2 rounded-2xl border border-slate-800 bg-slate-900/50 p-6 text-sm text-slate-300 shadow-inner">
+                          {/* Profile + Skills */}
+                          <div className="grid gap-6 md:grid-cols-2">
                             <div>
-                              <h3 className="mb-2 text-lg font-bold text-blue-300">Strengths</h3>
-                              <ul className="list-inside list-disc space-y-1 text-slate-400">
-                                {analysis.strengths.map((str, idx) => <li key={idx}>{str}</li>)}
-                              </ul>
+                              <h3 className="mb-2 text-lg font-bold text-violet-300">
+                                Profile
+                              </h3>
+
+                              <p>
+                                <strong>Name:</strong>{" "}
+                                {analysis?.candidateName ||
+                                  "N/A"}
+                              </p>
+
+                              <p>
+                                <strong>Title:</strong>{" "}
+                                {analysis?.professionalTitle ||
+                                  "N/A"}
+                              </p>
+
+                              <p>
+                                <strong>Domain:</strong>{" "}
+                                {analysis?.careerDomain ||
+                                  "N/A"}
+                              </p>
+
+                              <p>
+                                <strong>Level:</strong>{" "}
+                                {analysis?.careerLevel ||
+                                  "N/A"}
+                              </p>
+
+                              {analysis?.summary && (
+                                <p className="mt-2 text-slate-400">
+                                  {analysis.summary}
+                                </p>
+                              )}
                             </div>
-                          )}
-                          {analysis?.weaknesses && analysis.weaknesses.length > 0 && (
+
                             <div>
-                              <h3 className="mb-2 text-lg font-bold text-amber-300">Weaknesses</h3>
-                              <ul className="list-inside list-disc space-y-1 text-slate-400">
-                                {analysis.weaknesses.map((wk, idx) => <li key={idx}>{wk}</li>)}
-                              </ul>
-                            </div>
-                          )}
-                        </div>
+                              <h3 className="mb-2 text-lg font-bold text-emerald-300">
+                                Skills
+                              </h3>
 
-                        {analysis?.experience && analysis.experience.length > 0 && (
-                          <div className="mt-6">
-                            <h3 className="mb-3 text-lg font-bold text-indigo-300">Experience</h3>
-                            <div className="space-y-4">
-                              {analysis.experience.map((exp: any, idx: number) => (
-                                <div key={idx} className="border-l-2 border-slate-700 pl-4">
-                                  <p className="font-semibold text-white">{exp.role} <span className="font-normal text-slate-400">at {exp.organization}</span></p>
-                                  <p className="text-xs text-slate-500">{exp.dates}</p>
-                                  {exp.description && <p className="mt-1 text-slate-400">{exp.description}</p>}
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                        )}
+                              <div className="mb-2 flex flex-wrap gap-2">
+                                {analysis?.technicalSkills?.map(
+                                  (skill, idx) => (
+                                    <span
+                                      key={`technical-${idx}`}
+                                      className="rounded border border-emerald-500/20 bg-emerald-500/10 px-2 py-1 text-xs"
+                                    >
+                                      {skill}
+                                    </span>
+                                  )
+                                )}
 
-                        {analysis?.education && analysis.education.length > 0 && (
-                          <div className="mt-6">
-                            <h3 className="mb-3 text-lg font-bold text-fuchsia-300">Education</h3>
-                            <div className="space-y-4">
-                              {analysis.education.map((edu: any, idx: number) => (
-                                <div key={idx} className="border-l-2 border-slate-700 pl-4">
-                                  <p className="font-semibold text-white">{edu.degree}</p>
-                                  <p className="text-xs text-slate-400">{edu.institution} • {edu.dates}</p>
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                        )}
-                        
-                        {analysis?.projects && analysis.projects.length > 0 && (
-                          <div className="mt-6">
-                            <h3 className="mb-3 text-lg font-bold text-cyan-300">Projects</h3>
-                            <div className="grid gap-4 md:grid-cols-2">
-                              {analysis.projects.map((proj: any, idx: number) => (
-                                <div key={idx} className="rounded-lg border border-slate-800 bg-slate-800/30 p-3">
-                                  <p className="font-semibold text-white">{proj.name}</p>
-                                  {proj.description && <p className="mt-1 text-xs text-slate-400">{proj.description}</p>}
-                                  {proj.technologies && proj.technologies.length > 0 && (
-                                    <div className="mt-2 flex flex-wrap gap-1">
-                                      {proj.technologies.map((tech: string, i: number) => (
-                                        <span key={i} className="rounded bg-slate-700 px-1.5 py-0.5 text-[10px]">{tech}</span>
-                                      ))}
+                                {analysis?.softSkills?.map(
+                                  (skill, idx) => (
+                                    <span
+                                      key={`soft-${idx}`}
+                                      className="rounded border border-cyan-500/20 bg-cyan-500/10 px-2 py-1 text-xs"
+                                    >
+                                      {skill}
+                                    </span>
+                                  )
+                                )}
+                              </div>
+
+                              {analysis?.missingSkills &&
+                                analysis.missingSkills
+                                  .length > 0 && (
+                                  <>
+                                    <h4 className="mb-1 mt-4 text-xs font-semibold text-red-300">
+                                      Missing Skills
+                                    </h4>
+
+                                    <div className="flex flex-wrap gap-2">
+                                      {analysis.missingSkills.map(
+                                        (
+                                          skill,
+                                          idx
+                                        ) => (
+                                          <span
+                                            key={`missing-${idx}`}
+                                            className="rounded border border-red-500/20 bg-red-500/10 px-2 py-1 text-xs text-red-300"
+                                          >
+                                            {skill}
+                                          </span>
+                                        )
+                                      )}
                                     </div>
+                                  </>
+                                )}
+                            </div>
+                          </div>
+
+                          {/* Strengths + Weaknesses */}
+                          <div className="mt-6 grid gap-6 md:grid-cols-2">
+                            {analysis?.strengths &&
+                              analysis.strengths.length >
+                                0 && (
+                                <div>
+                                  <h3 className="mb-2 text-lg font-bold text-blue-300">
+                                    Strengths
+                                  </h3>
+
+                                  <ul className="list-inside list-disc space-y-1 text-slate-400">
+                                    {analysis.strengths.map(
+                                      (str, idx) => (
+                                        <li key={idx}>
+                                          {str}
+                                        </li>
+                                      )
+                                    )}
+                                  </ul>
+                                </div>
+                              )}
+
+                            {analysis?.weaknesses &&
+                              analysis.weaknesses.length >
+                                0 && (
+                                <div>
+                                  <h3 className="mb-2 text-lg font-bold text-amber-300">
+                                    Weaknesses
+                                  </h3>
+
+                                  <ul className="list-inside list-disc space-y-1 text-slate-400">
+                                    {analysis.weaknesses.map(
+                                      (wk, idx) => (
+                                        <li key={idx}>
+                                          {wk}
+                                        </li>
+                                      )
+                                    )}
+                                  </ul>
+                                </div>
+                              )}
+                          </div>
+
+                          {/* Experience */}
+                          {analysis?.experience &&
+                            analysis.experience.length >
+                              0 && (
+                              <div className="mt-6">
+                                <h3 className="mb-3 text-lg font-bold text-indigo-300">
+                                  Experience
+                                </h3>
+
+                                <div className="space-y-4">
+                                  {analysis.experience.map(
+                                    (
+                                      exp: any,
+                                      idx: number
+                                    ) => (
+                                      <div
+                                        key={idx}
+                                        className="border-l-2 border-slate-700 pl-4"
+                                      >
+                                        <p className="font-semibold text-white">
+                                          {
+                                            exp.role
+                                          }{" "}
+                                          <span className="font-normal text-slate-400">
+                                            at{" "}
+                                            {
+                                              exp.organization
+                                            }
+                                          </span>
+                                        </p>
+
+                                        <p className="text-xs text-slate-500">
+                                          {exp.dates}
+                                        </p>
+
+                                        {exp.description && (
+                                          <p className="mt-1 text-slate-400">
+                                            {
+                                              exp.description
+                                            }
+                                          </p>
+                                        )}
+                                      </div>
+                                    )
                                   )}
                                 </div>
-                              ))}
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                      </div>
-                    )}
+                              </div>
+                            )}
+
+                          {/* Education */}
+                          {analysis?.education &&
+                            analysis.education.length >
+                              0 && (
+                              <div className="mt-6">
+                                <h3 className="mb-3 text-lg font-bold text-fuchsia-300">
+                                  Education
+                                </h3>
+
+                                <div className="space-y-4">
+                                  {analysis.education.map(
+                                    (
+                                      edu: any,
+                                      idx: number
+                                    ) => (
+                                      <div
+                                        key={idx}
+                                        className="border-l-2 border-slate-700 pl-4"
+                                      >
+                                        <p className="font-semibold text-white">
+                                          {
+                                            edu.degree
+                                          }
+                                        </p>
+
+                                        <p className="text-xs text-slate-400">
+                                          {
+                                            edu.institution
+                                          }{" "}
+                                          •{" "}
+                                          {
+                                            edu.dates
+                                          }
+                                        </p>
+                                      </div>
+                                    )
+                                  )}
+                                </div>
+                              </div>
+                            )}
+
+                          {/* Projects */}
+                          {analysis?.projects &&
+                            analysis.projects.length >
+                              0 && (
+                              <div className="mt-6">
+                                <h3 className="mb-3 text-lg font-bold text-cyan-300">
+                                  Projects
+                                </h3>
+
+                                <div className="grid gap-4 md:grid-cols-2">
+                                  {analysis.projects.map(
+                                    (
+                                      proj: any,
+                                      idx: number
+                                    ) => (
+                                      <div
+                                        key={idx}
+                                        className="rounded-lg border border-slate-800 bg-slate-800/30 p-3"
+                                      >
+                                        <p className="font-semibold text-white">
+                                          {
+                                            proj.name
+                                          }
+                                        </p>
+
+                                        {proj.description && (
+                                          <p className="mt-1 text-xs text-slate-400">
+                                            {
+                                              proj.description
+                                            }
+                                          </p>
+                                        )}
+
+                                        {proj.technologies &&
+                                          proj
+                                            .technologies
+                                            .length >
+                                            0 && (
+                                            <div className="mt-2 flex flex-wrap gap-1">
+                                              {proj.technologies.map(
+                                                (
+                                                  tech: string,
+                                                  i: number
+                                                ) => (
+                                                  <span
+                                                    key={
+                                                      i
+                                                    }
+                                                    className="rounded bg-slate-700 px-1.5 py-0.5 text-[10px]"
+                                                  >
+                                                    {
+                                                      tech
+                                                    }
+                                                  </span>
+                                                )
+                                              )}
+                                            </div>
+                                          )}
+                                      </div>
+                                    )
+                                  )}
+                                </div>
+                              </div>
+                            )}
+                        </div>
+                      )}
                     </div>
                   );
                 })}
@@ -972,10 +1488,13 @@ export default function ResumePage() {
         </div>
       </main>
 
+      {/* Delete Confirmation */}
       <ConfirmDialog
         open={resumeToDelete !== null}
         title="Delete Resume"
-        message={`Are you sure you want to delete "${resumeToDelete?.file_name ?? "this resume"}"? This action cannot be undone.`}
+        message={`Are you sure you want to delete "${
+          resumeToDelete?.file_name ?? "this resume"
+        }"? This action cannot be undone.`}
         confirmLabel="Delete"
         variant="danger"
         loading={deleting}
