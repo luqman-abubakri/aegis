@@ -10,6 +10,8 @@ import {
   ArrowRight,
   Eye,
   EyeOff,
+  Check,
+  X,
 } from "lucide-react";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
@@ -23,30 +25,61 @@ export default function SignUpPage() {
   const [password, setPassword] = useState("");
   const [formError, setFormError] = useState("");
   const [loading, setLoading] = useState(false);
+
   const router = useRouter();
+
+  // Password validation rules
+  const passwordRules = {
+    minLength: password.length >= 8,
+    uppercase: /[A-Z]/.test(password),
+    lowercase: /[a-z]/.test(password),
+    number: /[0-9]/.test(password),
+  };
+
+  const isPasswordValid =
+    passwordRules.minLength &&
+    passwordRules.uppercase &&
+    passwordRules.lowercase &&
+    passwordRules.number;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setFormError("");
 
-    if (!name || !email || !password) {
+    // Check required fields
+    if (!name.trim() || !email.trim() || !password) {
       setFormError("Please fill in all fields");
       return;
     }
 
-    if (password.length < 6) {
-      setFormError("Password must be at least 6 characters");
+    // Validate password
+    if (!isPasswordValid) {
+      setFormError(
+        "Password must be at least 8 characters and include an uppercase letter, lowercase letter, and number."
+      );
       return;
     }
 
     setLoading(true);
-    const result = await signUp(name, email, password);
-    setLoading(false);
 
-    if (!result.success) {
-      setFormError(result.message || "Registration failed");
-    } else {
+    try {
+      const result = await signUp(
+        name.trim(),
+        email.trim(),
+        password
+      );
+
+      if (!result.success) {
+        setFormError(result.message || "Registration failed");
+        return;
+      }
+
       router.push("/dashboard");
+    } catch (error) {
+      console.error("Signup error:", error);
+      setFormError("Something went wrong. Please try again.");
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -68,6 +101,7 @@ export default function SignUpPage() {
         />
       </div>
 
+      {/* Card */}
       <motion.div
         initial={{ opacity: 0, y: 35 }}
         animate={{ opacity: 1, y: 0 }}
@@ -85,7 +119,8 @@ export default function SignUpPage() {
           </h1>
 
           <p className="mt-2 text-center text-slate-400">
-            Start preparing for technical interviews with your AI interview coach.
+            Start preparing for technical interviews with your AI
+            interview coach.
           </p>
         </div>
 
@@ -94,7 +129,7 @@ export default function SignUpPage() {
           <motion.div
             initial={{ opacity: 0, y: -10 }}
             animate={{ opacity: 1, y: 0 }}
-            className="mb-6 rounded-xl border border-red-500/20 bg-red-500/10 px-5 py-3 text-sm text-red-400"
+            className="mb-6 rounded-xl border border-red-500/20 bg-red-500/10 px-5 py-3 text-sm leading-relaxed text-red-400"
           >
             {formError}
           </motion.div>
@@ -102,20 +137,27 @@ export default function SignUpPage() {
 
         {/* Form */}
         <form onSubmit={handleSubmit} className="space-y-6">
-          {/* Name */}
+          {/* Full Name */}
           <div>
             <label className="mb-2 block text-sm text-slate-300">
               Full Name
             </label>
 
             <div className="flex items-center rounded-xl border border-slate-700 bg-slate-950 px-4 transition focus-within:border-blue-500">
-              <User className="text-slate-500" size={20} />
+              <User
+                className="shrink-0 text-slate-500"
+                size={20}
+              />
 
               <input
                 type="text"
                 value={name}
-                onChange={(e) => setName(e.target.value)}
+                onChange={(e) => {
+                  setName(e.target.value);
+                  setFormError("");
+                }}
                 placeholder="John Doe"
+                autoComplete="name"
                 className="w-full bg-transparent px-3 py-4 outline-none placeholder:text-slate-500"
               />
             </div>
@@ -128,13 +170,20 @@ export default function SignUpPage() {
             </label>
 
             <div className="flex items-center rounded-xl border border-slate-700 bg-slate-950 px-4 transition focus-within:border-blue-500">
-              <Mail className="text-slate-500" size={20} />
+              <Mail
+                className="shrink-0 text-slate-500"
+                size={20}
+              />
 
               <input
                 type="email"
                 value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                onChange={(e) => {
+                  setEmail(e.target.value);
+                  setFormError("");
+                }}
                 placeholder="you@example.com"
+                autoComplete="email"
                 className="w-full bg-transparent px-3 py-4 outline-none placeholder:text-slate-500"
               />
             </div>
@@ -147,20 +196,32 @@ export default function SignUpPage() {
             </label>
 
             <div className="flex items-center rounded-xl border border-slate-700 bg-slate-950 px-4 transition focus-within:border-blue-500">
-              <Lock className="text-slate-500" size={20} />
+              <Lock
+                className="shrink-0 text-slate-500"
+                size={20}
+              />
 
               <input
                 type={showPassword ? "text" : "password"}
                 value={password}
-                onChange={(e) => setPassword(e.target.value)}
+                onChange={(e) => {
+                  setPassword(e.target.value);
+                  setFormError("");
+                }}
                 placeholder="••••••••"
+                autoComplete="new-password"
                 className="w-full bg-transparent px-3 py-4 outline-none placeholder:text-slate-500"
               />
 
               <button
                 type="button"
-                onClick={() => setShowPassword(!showPassword)}
-                className="text-slate-500 transition hover:text-white"
+                onClick={() => setShowPassword((prev) => !prev)}
+                className="shrink-0 text-slate-500 transition hover:text-white"
+                aria-label={
+                  showPassword
+                    ? "Hide password"
+                    : "Show password"
+                }
               >
                 {showPassword ? (
                   <EyeOff size={20} />
@@ -169,9 +230,42 @@ export default function SignUpPage() {
                 )}
               </button>
             </div>
+
+            {/* Password Requirements */}
+            {password.length > 0 && (
+              <motion.div
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: "auto" }}
+                className="mt-3 space-y-2 rounded-xl border border-slate-800 bg-slate-950/50 p-4"
+              >
+                <p className="mb-2 text-xs font-medium text-slate-400">
+                  Password requirements
+                </p>
+
+                <PasswordRule
+                  valid={passwordRules.minLength}
+                  text="At least 8 characters"
+                />
+
+                <PasswordRule
+                  valid={passwordRules.uppercase}
+                  text="At least one uppercase letter"
+                />
+
+                <PasswordRule
+                  valid={passwordRules.lowercase}
+                  text="At least one lowercase letter"
+                />
+
+                <PasswordRule
+                  valid={passwordRules.number}
+                  text="At least one number"
+                />
+              </motion.div>
+            )}
           </div>
 
-          {/* Button */}
+          {/* Create Account Button */}
           <button
             type="submit"
             disabled={loading}
@@ -182,6 +276,7 @@ export default function SignUpPage() {
             ) : (
               <>
                 Create Account
+
                 <ArrowRight
                   size={18}
                   className="transition group-hover:translate-x-1"
@@ -203,5 +298,32 @@ export default function SignUpPage() {
         </div>
       </motion.div>
     </main>
+  );
+}
+
+/**
+ * Password requirement indicator
+ */
+function PasswordRule({
+  valid,
+  text,
+}: {
+  valid: boolean;
+  text: string;
+}) {
+  return (
+    <div
+      className={`flex items-center gap-2 text-xs transition-colors ${
+        valid ? "text-green-400" : "text-slate-500"
+      }`}
+    >
+      {valid ? (
+        <Check size={14} />
+      ) : (
+        <X size={14} />
+      )}
+
+      <span>{text}</span>
+    </div>
   );
 }
