@@ -4,7 +4,6 @@ import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { InterviewSetup } from "@/components/interview/InterviewSetup";
-import { supabase } from "@/lib/supabase";
 import type { InterviewConfig } from "@/types";
 
 export default function InterviewPage() {
@@ -15,23 +14,16 @@ export default function InterviewPage() {
   useEffect(() => {
     async function fetchLatestResumeTitle() {
       try {
-        const {
-          data: { user },
-        } = await supabase.auth.getUser();
+        const response = await fetch("/api/resume", {
+          credentials: "include",
+        });
+        const payload = await response.json();
+        const latestResume = payload.resumes?.find(
+          (resume: { analysis?: unknown }) => resume.analysis
+        );
 
-        if (!user) return;
-
-        const { data } = await supabase
-          .from("resume_uploads")
-          .select("analysis")
-          .eq("user_id", user.id)
-          .not("analysis", "is", null)
-          .order("uploaded_at", { ascending: false })
-          .limit(1)
-          .maybeSingle();
-
-        if (data?.analysis) {
-          const analysis = data.analysis as {
+        if (latestResume?.analysis) {
+          const analysis = latestResume.analysis as {
             professionalTitle?: string;
             careerDomain?: string;
           };

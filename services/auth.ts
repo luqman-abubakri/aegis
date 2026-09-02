@@ -1,5 +1,3 @@
-import { supabase } from "@/lib/supabase";
-
 export interface AuthResult {
   success: boolean;
   message: string;
@@ -7,161 +5,170 @@ export interface AuthResult {
     id: string;
     email: string;
     name: string;
+    avatarUrl?: string;
   };
 }
 
+/**
+ * Create a new account through the MongoDB API.
+ */
 export async function signUp(
   name: string,
   email: string,
   password: string
 ): Promise<AuthResult> {
   try {
-    console.log("✓ Auth signup initiated for:", email);
+    console.log("✓ MongoDB signup initiated for:", email);
 
-    const { data, error } = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        data: {
-          full_name: name,
-        },
+    const response = await fetch("/api/auth/signup", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
       },
+      body: JSON.stringify({
+        name,
+        email,
+        password,
+      }),
+      credentials: "include",
     });
 
-    if (error) {
-      console.error("❌ Auth signup failed:", error);
+    const data = await response.json();
+
+    if (!response.ok || !data.success) {
+      console.error("❌ Signup failed:", data.message);
+
       return {
         success: false,
-        message: error.message,
+        message: data.message || "Failed to create account.",
       };
     }
 
-    if (!data.user) {
-      console.error("❌ Auth signup succeeded but no user returned");
-      return {
-        success: false,
-        message: "Failed to create account. Please try again.",
-      };
-    }
-
-    console.log("✓ Auth signup succeeded");
-    console.log("✓ User ID received:", data.user.id);
-    console.log("✓ Profile will be created automatically by database trigger");
+    console.log("✓ MongoDB signup succeeded");
+    console.log("✓ User ID:", data.user?.id);
 
     return {
       success: true,
-      message:
-        "Account created successfully! Check your email for confirmation.",
-      user: {
-        id: data.user.id,
-        email: data.user.email ?? email,
-        name,
-      },
+      message: data.message || "Account created successfully.",
+      user: data.user
+        ? {
+            id: data.user.id,
+            email: data.user.email,
+            name: data.user.name ?? data.user.fullName ?? name,
+            avatarUrl: data.user.avatarUrl ?? "",
+          }
+        : undefined,
     };
-  } catch (err: unknown) {
-    console.error("❌ Unexpected signup error:", err);
-    const message =
-      err instanceof Error ? err.message : "An unexpected error occurred";
+  } catch (error) {
+    console.error("❌ Signup request failed:", error);
+
     return {
       success: false,
-      message,
+      message:
+        error instanceof Error
+          ? error.message
+          : "Unable to create account. Please try again.",
     };
   }
 }
 
+/**
+ * Sign in through the MongoDB/JWT API.
+ */
 export async function signIn(
   email: string,
   password: string
 ): Promise<AuthResult> {
   try {
-    const { data, error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
+    console.log("✓ MongoDB sign-in initiated for:", email);
+
+    const response = await fetch("/api/auth/sign-in", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        email,
+        password,
+      }),
+      credentials: "include",
     });
 
-    if (error) {
-      // Map Supabase error messages to user-friendly messages
-      const message = mapAuthError(error.message);
+    const data = await response.json();
+
+    if (!response.ok || !data.success) {
+      console.error("❌ Sign-in failed:", data.message);
+
       return {
         success: false,
-        message,
+        message: data.message || "Invalid email or password.",
       };
     }
 
-    if (!data.user) {
-      return {
-        success: false,
-        message: "Invalid email or password.",
-      };
-    }
+    console.log("✓ MongoDB sign-in succeeded");
+    console.log("✓ User ID:", data.user?.id);
 
     return {
       success: true,
-      message: "Signed in successfully!",
-      user: {
-        id: data.user.id,
-        email: data.user.email ?? email,
-        name: data.user.user_metadata?.full_name ?? "User",
-      },
+      message: data.message || "Signed in successfully.",
+      user: data.user
+        ? {
+            id: data.user.id,
+            email: data.user.email,
+            name: data.user.name ?? data.user.fullName ?? "User",
+            avatarUrl: data.user.avatarUrl ?? "",
+          }
+        : undefined,
     };
-  } catch (err: unknown) {
-    const message =
-      err instanceof Error ? err.message : "An unexpected error occurred";
+  } catch (error) {
+    console.error("❌ Sign-in request failed:", error);
+
     return {
       success: false,
-      message,
+      message:
+        error instanceof Error
+          ? error.message
+          : "Unable to sign in. Please try again.",
     };
   }
 }
 
+/**
+ * Sign out by clearing the MongoDB/JWT session cookie.
+ */
 export async function signOut(): Promise<AuthResult> {
   try {
-    const { error } = await supabase.auth.signOut();
+    console.log("✓ Signing out...");
 
-    if (error) {
+    const response = await fetch("/api/auth/logout", {
+      method: "POST",
+      credentials: "include",
+    });
+
+    const data = await response.json();
+
+    if (!response.ok || !data.success) {
       return {
         success: false,
-        message: error.message,
+        message: data.message || "Failed to sign out.",
       };
     }
 
+    console.log("✓ Signed out successfully");
+
     return {
       success: true,
-      message: "Signed out successfully.",
+      message: data.message || "Signed out successfully.",
     };
-  } catch (err: unknown) {
-    const message =
-      err instanceof Error ? err.message : "An unexpected error occurred";
+  } catch (error) {
+    console.error("❌ Sign-out request failed:", error);
+
     return {
       success: false,
-      message,
+      message:
+        error instanceof Error
+          ? error.message
+          : "Unable to sign out. Please try again.",
     };
   }
 }
-
-function mapAuthError(message: string): string {
-  const lower = message.toLowerCase();
-
-  if (lower.includes("invalid login credentials")) {
-    return "Invalid email or password.";
-  }
-
-  if (lower.includes("email not confirmed")) {
-    return "Please confirm your email before signing in.";
-  }
-
-  if (lower.includes("user not found")) {
-    return "No account found with this email address.";
-  }
-
-  if (lower.includes("rate limit")) {
-    return "Too many attempts. Please try again later.";
-  }
-
-  if (lower.includes("network")) {
-    return "Network error. Please check your connection.";
-  }
-
-  return message;
-}
-

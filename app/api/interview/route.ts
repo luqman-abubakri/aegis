@@ -1,17 +1,26 @@
 import { NextResponse } from "next/server";
+import { cookies } from "next/headers";
+import { jwtVerify } from "jose";
+
 import {
   evaluateAnswer,
   generateFinalFeedback,
   generateInterviewQuestion,
 } from "@/lib/grok";
-import { createAuthenticatedSupabaseClient } from "@/lib/supabase";
+
+import { dbConnect } from "@/lib/dbConnect";
+
+import User from "@/lib/models/User";
+import Interview from "@/lib/models/Interview";
+import Feedback from "@/lib/models/Feedback";
+
 import { buildIncompleteFeedback } from "@/lib/incompleteFeedback";
+
 import type {
   AnswerEvaluation,
   Difficulty,
   InterviewFeedback,
   InterviewType,
-  ResumeAnalysis,
 } from "@/types";
 
 export const runtime = "nodejs";
@@ -37,7 +46,29 @@ const difficulties: Difficulty[] = [
   "advanced",
 ];
 
-function isRecord(value: unknown): value is RequestBody {
+const JWT_SECRET =
+  process.env.JWT_SECRET;
+
+if (!JWT_SECRET) {
+  throw new Error(
+    "Missing environment variable: JWT_SECRET"
+  );
+}
+
+const jwtSecret =
+  new TextEncoder().encode(
+    JWT_SECRET
+  );
+
+/*
+ * ========================================
+ * HELPERS
+ * ========================================
+ */
+
+function isRecord(
+  value: unknown
+): value is RequestBody {
   return (
     typeof value === "object" &&
     value !== null &&
@@ -45,32 +76,50 @@ function isRecord(value: unknown): value is RequestBody {
   );
 }
 
-function getString(value: unknown): string | null {
-  if (typeof value !== "string") {
+function getString(
+  value: unknown
+): string | null {
+  if (
+    typeof value !== "string"
+  ) {
     return null;
   }
 
-  const trimmedValue = value.trim();
+  const trimmed =
+    value.trim();
 
-  return trimmedValue || null;
+  return trimmed || null;
 }
 
-function getStringArray(value: unknown): string[] {
+function getStringArray(
+  value: unknown
+): string[] {
   if (!Array.isArray(value)) {
     return [];
   }
 
   return value.filter(
-    (item): item is string => typeof item === "string"
+    (
+      item
+    ): item is string =>
+      typeof item === "string"
   );
 }
 
-function isInterviewType(value: string): value is InterviewType {
-  return interviewTypes.includes(value as InterviewType);
+function isInterviewType(
+  value: string
+): value is InterviewType {
+  return interviewTypes.includes(
+    value as InterviewType
+  );
 }
 
-function isDifficulty(value: string): value is Difficulty {
-  return difficulties.includes(value as Difficulty);
+function isDifficulty(
+  value: string
+): value is Difficulty {
+  return difficulties.includes(
+    value as Difficulty
+  );
 }
 
 function getInterviewConfig(
@@ -81,12 +130,27 @@ function getInterviewConfig(
       interviewType: InterviewType;
       difficulty: Difficulty;
     }
-  | { error: string } {
-  const role = getString(body.role);
-  const interviewType = getString(body.interviewType);
-  const difficulty = getString(body.difficulty);
+  | {
+      error: string;
+    } {
+  const role =
+    getString(body.role);
 
-  if (!role || !interviewType || !difficulty) {
+  const interviewType =
+    getString(
+      body.interviewType
+    );
+
+  const difficulty =
+    getString(
+      body.difficulty
+    );
+
+  if (
+    !role ||
+    !interviewType ||
+    !difficulty
+  ) {
     return {
       error:
         "Missing required fields: role, interviewType, difficulty",
@@ -94,11 +158,16 @@ function getInterviewConfig(
   }
 
   if (
-    !isInterviewType(interviewType) ||
-    !isDifficulty(difficulty)
+    !isInterviewType(
+      interviewType
+    ) ||
+    !isDifficulty(
+      difficulty
+    )
   ) {
     return {
-      error: "Invalid interviewType or difficulty",
+      error:
+        "Invalid interviewType or difficulty",
     };
   }
 
@@ -111,31 +180,42 @@ function getInterviewConfig(
 
 function parsePreviousQuestions(
   value: unknown
-): { question: string; answer?: string }[] {
+): {
+  question: string;
+  answer?: string;
+}[] {
   if (!Array.isArray(value)) {
     return [];
   }
 
-  return value.flatMap((item) => {
-    if (!isRecord(item)) {
-      return [];
+  return value.flatMap(
+    (item) => {
+      if (!isRecord(item)) {
+        return [];
+      }
+
+      const question =
+        getString(
+          item.question
+        );
+
+      if (!question) {
+        return [];
+      }
+
+      const answer =
+        getString(item.answer);
+
+      return [
+        {
+          question,
+          ...(answer
+            ? { answer }
+            : {}),
+        },
+      ];
     }
-
-    const question = getString(item.question);
-
-    if (!question) {
-      return [];
-    }
-
-    const answer = getString(item.answer);
-
-    return [
-      {
-        question,
-        ...(answer ? { answer } : {}),
-      },
-    ];
-  });
+  );
 }
 
 function parseEvaluation(
@@ -145,12 +225,20 @@ function parseEvaluation(
     return null;
   }
 
-  const questionId = getString(value.questionId);
-  const question = getString(value.question);
-  const answer = getString(value.answer);
+  const questionId =
+    getString(
+      value.questionId
+    );
+
+  const question =
+    getString(value.question);
+
+  const answer =
+    getString(value.answer);
 
   const score =
-    typeof value.score === "number"
+    typeof value.score ===
+    "number"
       ? value.score
       : Number(value.score);
 
@@ -163,8 +251,15 @@ function parseEvaluation(
     return null;
   }
 
-  const modelAnswer = getString(value.modelAnswer);
-  const coachingMessage = getString(value.coachingMessage);
+  const modelAnswer =
+    getString(
+      value.modelAnswer
+    );
+
+  const coachingMessage =
+    getString(
+      value.coachingMessage
+    );
 
   return {
     questionId,
@@ -173,23 +268,37 @@ function parseEvaluation(
 
     score: Math.max(
       0,
-      Math.min(100, Math.round(score))
+      Math.min(
+        100,
+        Math.round(score)
+      )
     ),
 
-    strengths: getStringArray(value.strengths),
+    strengths:
+      getStringArray(
+        value.strengths
+      ),
 
-    weaknesses: getStringArray(value.weaknesses),
+    weaknesses:
+      getStringArray(
+        value.weaknesses
+      ),
 
-    improvementSuggestions: getStringArray(
-      value.improvementSuggestions
-    ),
+    improvementSuggestions:
+      getStringArray(
+        value.improvementSuggestions
+      ),
 
     ...(coachingMessage
       ? { coachingMessage }
       : {}),
 
-    ...(typeof value.followUp === "boolean"
-      ? { followUp: value.followUp }
+    ...(typeof value.followUp ===
+    "boolean"
+      ? {
+          followUp:
+            value.followUp,
+        }
       : {}),
 
     ...(modelAnswer
@@ -205,10 +314,14 @@ function parseEvaluations(
     return null;
   }
 
-  const evaluations = value.map(parseEvaluation);
+  const evaluations =
+    value.map(
+      parseEvaluation
+    );
 
   return evaluations.every(
-    (evaluation) => evaluation !== null
+    (evaluation) =>
+      evaluation !== null
   )
     ? (evaluations as AnswerEvaluation[])
     : null;
@@ -223,44 +336,65 @@ function parseFeedback(
   }
 
   const overallScore =
-    typeof value.overallScore === "number"
+    typeof value.overallScore ===
+    "number"
       ? value.overallScore
-      : Number(value.overallScore);
+      : Number(
+          value.overallScore
+        );
 
-  const summary = getString(value.summary);
+  const summary =
+    getString(
+      value.summary
+    );
 
   if (
-    !Number.isFinite(overallScore) ||
+    !Number.isFinite(
+      overallScore
+    ) ||
     !summary
   ) {
     return null;
   }
 
   return {
-    overallScore: Math.max(
-      0,
-      Math.min(100, Math.round(overallScore))
-    ),
+    overallScore:
+      Math.max(
+        0,
+        Math.min(
+          100,
+          Math.round(
+            overallScore
+          )
+        )
+      ),
 
     totalQuestions:
-      typeof value.totalQuestions === "number"
+      typeof value.totalQuestions ===
+      "number"
         ? value.totalQuestions
         : evaluations.length,
 
     answeredQuestions:
-      typeof value.answeredQuestions === "number"
+      typeof value.answeredQuestions ===
+      "number"
         ? value.answeredQuestions
         : evaluations.length,
 
-    strengths: getStringArray(value.strengths),
+    strengths:
+      getStringArray(
+        value.strengths
+      ),
 
-    areasForImprovement: getStringArray(
-      value.areasForImprovement
-    ),
+    areasForImprovement:
+      getStringArray(
+        value.areasForImprovement
+      ),
 
     summary,
 
-    questionEvaluations: evaluations,
+    questionEvaluations:
+      evaluations,
   };
 }
 
@@ -272,23 +406,90 @@ function getDurationSeconds(
       ? value
       : Number(value);
 
-  return Number.isFinite(duration)
-    ? Math.max(0, Math.round(duration))
+  return Number.isFinite(
+    duration
+  )
+    ? Math.max(
+        0,
+        Math.round(duration)
+      )
     : 0;
 }
 
-function getAccessToken(
-  request: Request
-): string | null {
-  const authorization =
-    request.headers.get("authorization");
+function getPositiveInt(
+  value: unknown
+): number {
+  const parsed =
+    typeof value ===
+    "number"
+      ? value
+      : Number(value);
 
-  const match = authorization?.match(
-    /^Bearer\s+(.+)$/i
-  );
-
-  return match?.[1]?.trim() || null;
+  return Number.isFinite(
+    parsed
+  )
+    ? Math.max(
+        0,
+        Math.round(parsed)
+      )
+    : 0;
 }
+
+/*
+ * ========================================
+ * JWT AUTHENTICATION
+ * ========================================
+ *
+ * The session is stored in:
+ *
+ * aegis_session
+ *
+ */
+async function getAuthenticatedUserId(): Promise<
+  string | null
+> {
+  const cookieStore =
+    await cookies();
+
+  const token =
+    cookieStore.get(
+      "aegis_session"
+    )?.value;
+
+  if (!token) {
+    return null;
+  }
+
+  try {
+    const { payload } =
+      await jwtVerify(
+        token,
+        jwtSecret
+      );
+
+    if (
+      typeof payload.userId !==
+      "string"
+    ) {
+      return null;
+    }
+
+    return payload.userId;
+  } catch (error) {
+    console.error(
+      "[Interview API] JWT verification failed:",
+      error
+    );
+
+    return null;
+  }
+}
+
+/*
+ * ========================================
+ * ERROR HELPERS
+ * ========================================
+ */
 
 function getErrorMessage(
   error: unknown,
@@ -309,79 +510,36 @@ function jsonError(
   status: number
 ) {
   return NextResponse.json(
-    { error },
-    { status }
+    {
+      success: false,
+      error,
+    },
+    {
+      status,
+    }
   );
 }
 
-async function getLatestResumeProfile(
-  request: Request
-): Promise<ResumeAnalysis | undefined> {
-  const accessToken = getAccessToken(request);
-
-  if (!accessToken) {
-    return undefined;
-  }
-
-  try {
-    const supabase =
-      createAuthenticatedSupabaseClient(
-        accessToken
-      );
-
-    const {
-      data: { user },
-    } = await supabase.auth.getUser(
-      accessToken
-    );
-
-    if (!user) {
-      return undefined;
-    }
-
-    const { data } = await supabase
-      .from("resume_uploads")
-      .select("analysis")
-      .eq("user_id", user.id)
-      .not("analysis", "is", null)
-      .order("uploaded_at", {
-        ascending: false,
-      })
-      .limit(1)
-      .maybeSingle();
-
-    return data?.analysis
-      ? (data.analysis as ResumeAnalysis)
-      : undefined;
-  } catch (error) {
-    console.error(
-      "Failed to fetch latest resume profile:",
-      error
-    );
-
-    return undefined;
-  }
-}
+/*
+ * ========================================
+ * QUESTION
+ * ========================================
+ */
 
 async function handleQuestion(
-  request: Request,
   body: RequestBody
 ) {
-  const config = getInterviewConfig(body);
+  const config =
+    getInterviewConfig(body);
 
   if ("error" in config) {
-    return jsonError(config.error, 400);
+    return jsonError(
+      config.error,
+      400
+    );
   }
 
   try {
-    /*
-     * IMPORTANT:
-     * generateInterviewQuestion currently accepts
-     * only 3-4 arguments.
-     *
-     * Do NOT pass resumeProfile here until the
-     * function in lib/grok.ts is updated to support it.
-     */
     const question =
       await generateInterviewQuestion(
         config.role,
@@ -393,39 +551,55 @@ async function handleQuestion(
       );
 
     return NextResponse.json({
+      success: true,
       question,
     });
-  } catch (error: unknown) {
-    const message = getErrorMessage(
-      error,
-      "Failed to generate question"
-    );
+  } catch (
+    error: unknown
+  ) {
+    const message =
+      getErrorMessage(
+        error,
+        "Failed to generate question"
+      );
 
     console.error(
-      "Question generation failed:",
+      "[Interview API] Question generation failed:",
       message
     );
 
-    return jsonError(message, 500);
+    return jsonError(
+      message,
+      500
+    );
   }
 }
 
+/*
+ * ========================================
+ * EVALUATE ANSWER
+ * ========================================
+ */
+
 async function handleEvaluate(
-  request: Request,
   body: RequestBody
 ) {
-  const config = getInterviewConfig(body);
+  const config =
+    getInterviewConfig(body);
 
-  const question = getString(
-    body.question
-  );
+  const question =
+    getString(
+      body.question
+    );
 
-  const answer = getString(
-    body.answer
-  );
+  const answer =
+    getString(body.answer);
 
   if ("error" in config) {
-    return jsonError(config.error, 400);
+    return jsonError(
+      config.error,
+      400
+    );
   }
 
   if (!question || !answer) {
@@ -436,62 +610,48 @@ async function handleEvaluate(
   }
 
   try {
-    const resumeProfile =
-      await getLatestResumeProfile(request);
-
-    const context = getString(
-      body.context
-    );
-
     const evaluation =
       await evaluateAnswer({
         question,
         answer,
         ...config,
-
-        ...(context
-          ? { context }
-          : {}),
-
-        resumeProfile,
       });
 
     return NextResponse.json(
       evaluation
     );
-  } catch (error: unknown) {
-    const message = getErrorMessage(
-      error,
-      "Failed to evaluate answer"
-    );
+  } catch (
+    error: unknown
+  ) {
+    const message =
+      getErrorMessage(
+        error,
+        "Failed to evaluate answer"
+      );
 
     console.error(
-      "Answer evaluation failed:",
+      "[Interview API] Answer evaluation failed:",
       message
     );
 
-    return jsonError(message, 500);
+    return jsonError(
+      message,
+      500
+    );
   }
 }
 
-function getPositiveInt(
-  value: unknown
-): number {
-  const parsed =
-    typeof value === "number"
-      ? value
-      : Number(value);
-
-  return Number.isFinite(parsed)
-    ? Math.max(0, Math.round(parsed))
-    : 0;
-}
+/*
+ * ========================================
+ * FINAL FEEDBACK
+ * ========================================
+ */
 
 async function handleFeedback(
-  request: Request,
   body: RequestBody
 ) {
-  const config = getInterviewConfig(body);
+  const config =
+    getInterviewConfig(body);
 
   const evaluations =
     parseEvaluations(
@@ -499,7 +659,10 @@ async function handleFeedback(
     );
 
   if ("error" in config) {
-    return jsonError(config.error, 400);
+    return jsonError(
+      config.error,
+      400
+    );
   }
 
   if (!evaluations) {
@@ -523,11 +686,11 @@ async function handleFeedback(
       : answeredQuestions;
 
   /*
-   * Completely unattempted interviews
-   * never reach the AI.
+   * Completely unanswered interview.
    */
   if (
-    answeredQuestions === 0 ||
+    answeredQuestions ===
+      0 ||
     evaluations.length === 0
   ) {
     return NextResponse.json(
@@ -539,50 +702,85 @@ async function handleFeedback(
   }
 
   try {
-    const resumeProfile =
-      await getLatestResumeProfile(
-        request
-      );
-
     const feedback =
-      await generateFinalFeedback({
-        ...config,
-        evaluations,
-        totalQuestions,
-        answeredQuestions,
-        resumeProfile,
-      });
+      await generateFinalFeedback(
+        {
+          ...config,
+
+          evaluations,
+
+          totalQuestions,
+
+          answeredQuestions,
+        }
+      );
 
     return NextResponse.json(
       feedback
     );
-  } catch (error: unknown) {
-    const message = getErrorMessage(
-      error,
-      "Failed to generate feedback"
-    );
+  } catch (
+    error: unknown
+  ) {
+    const message =
+      getErrorMessage(
+        error,
+        "Failed to generate feedback"
+      );
 
     console.error(
-      "Final feedback generation failed:",
+      "[Interview API] Final feedback generation failed:",
       message
     );
 
-    return jsonError(message, 500);
+    return jsonError(
+      message,
+      500
+    );
   }
 }
 
+/*
+ * ========================================
+ * SAVE COMPLETE INTERVIEW
+ * ========================================
+ */
+
 async function handleSave(
-  request: Request,
   body: RequestBody
 ) {
-  const config = getInterviewConfig(body);
+  /*
+   * 1. Authenticate through JWT.
+   */
+  const userId =
+    await getAuthenticatedUserId();
 
-  const evaluations =
-    parseEvaluations(body.answers);
+  if (!userId) {
+    return jsonError(
+      "Your session has expired. Please sign in again.",
+      401
+    );
+  }
+
+  /*
+   * 2. Validate configuration.
+   */
+  const config =
+    getInterviewConfig(body);
 
   if ("error" in config) {
-    return jsonError(config.error, 400);
+    return jsonError(
+      config.error,
+      400
+    );
   }
+
+  /*
+   * 3. Validate answers.
+   */
+  const evaluations =
+    parseEvaluations(
+      body.answers
+    );
 
   if (!evaluations) {
     return jsonError(
@@ -591,6 +789,9 @@ async function handleSave(
     );
   }
 
+  /*
+   * 4. Validate feedback.
+   */
   const feedback =
     parseFeedback(
       body.feedback,
@@ -604,82 +805,54 @@ async function handleSave(
     );
   }
 
-  const accessToken =
-    getAccessToken(request);
+  /*
+   * 5. Connect MongoDB.
+   */
+  await dbConnect();
 
-  if (!accessToken) {
+  /*
+   * Make sure the authenticated user
+   * still exists.
+   */
+  const user =
+    await User.findById(
+      userId
+    ).select("_id");
+
+  if (!user) {
     return jsonError(
-      "You must be signed in to save an interview",
-      401
+      "User not found.",
+      404
     );
   }
-
-  const supabase =
-    createAuthenticatedSupabaseClient(
-      accessToken
-    );
-
-  const {
-    data: { user },
-    error: userError,
-  } =
-    await supabase.auth.getUser(
-      accessToken
-    );
-
-  if (userError || !user) {
-    console.error(
-      "[handleSave] Auth failed:",
-      {
-        userError:
-          userError?.message ?? null,
-      }
-    );
-
-    return jsonError(
-      "Your session has expired. Please sign in again.",
-      401
-    );
-  }
-
-  console.log(
-    "[handleSave] Save request received:",
-    {
-      userId: user.id,
-      role: config.role,
-      interviewType:
-        config.interviewType,
-      difficulty:
-        config.difficulty,
-      overallScore:
-        feedback.overallScore,
-      answerCount:
-        evaluations.length,
-      durationSeconds:
-        getDurationSeconds(
-          body.durationSeconds
-        ),
-    }
-  );
-
-  const completedAt =
-    new Date().toISOString();
 
   const durationSeconds =
     getDurationSeconds(
       body.durationSeconds
     );
 
+  const completedAt =
+    new Date();
+
   const startedAtRaw =
-    typeof body.startedAt === "string"
+    typeof body.startedAt ===
+    "string"
       ? body.startedAt
       : null;
 
-  const startedAt = startedAtRaw
-    ? new Date(
-        startedAtRaw
-      ).toISOString()
-    : completedAt;
+  const parsedStartedAt =
+    startedAtRaw
+      ? new Date(
+          startedAtRaw
+        )
+      : completedAt;
+
+  const startedAt =
+    Number.isNaN(
+      parsedStartedAt.getTime()
+    )
+      ? completedAt
+      : parsedStartedAt;
 
   const answeredQuestions =
     evaluations.length;
@@ -694,14 +867,6 @@ async function handleSave(
       ? totalQuestionsRaw
       : feedback.totalQuestions;
 
-  /*
-   * A session that was explicitly ended
-   * counts as completed if at least one
-   * answer exists.
-   *
-   * Completely unattempted sessions are
-   * marked incomplete.
-   */
   const status =
     answeredQuestions === 0 &&
     totalQuestions > 0
@@ -713,172 +878,106 @@ async function handleSave(
       body.interviewId
     );
 
-  let interview: {
-    id: string;
-  } | null = null;
+  let interview:
+    | any
+    | null = null;
 
   /*
+   * ======================================
    * UPDATE EXISTING INTERVIEW
+   * ======================================
    */
-  if (existingInterviewId) {
-    const updatePayload = {
-      status,
-      score:
-        feedback.overallScore,
-      feedback,
-      duration_seconds:
-        durationSeconds,
-      completed_at:
-        completedAt,
-    };
 
+  if (existingInterviewId) {
     console.log(
-      "[handleSave] Updating existing interview row:",
-      {
-        table: "interviews",
-        interviewId:
-          existingInterviewId,
-        payload:
-          updatePayload,
-      }
+      "[handleSave] Updating existing MongoDB interview:",
+      existingInterviewId
     );
 
-    const {
-      data: updated,
-      error: updateError,
-    } = await supabase
-      .from("interviews")
-      .update(updatePayload)
-      .eq(
-        "id",
-        existingInterviewId
-      )
-      .eq(
-        "user_id",
-        user.id
-      )
-      .select("id")
-      .maybeSingle();
-
-    if (updateError) {
-      console.error(
-        "[handleSave] Interview UPDATE failed:",
+    interview =
+      await Interview.findOneAndUpdate(
         {
-          userId: user.id,
-          interviewId:
+          _id:
             existingInterviewId,
-          error:
-            updateError.message,
-          code:
-            updateError.code,
+
+          userId:
+            userId,
+        },
+        {
+          $set: {
+            status,
+
+            score:
+              feedback.overallScore,
+
+            feedback,
+
+            durationSeconds,
+
+            completedAt,
+          },
+        },
+        {
+          new: true,
+
+          runValidators:
+            true,
         }
       );
-
-      return jsonError(
-        `Failed to update interview: ${updateError.message}`,
-        500
-      );
-    }
-
-    if (updated) {
-      interview = updated;
-    } else {
-      console.warn(
-        "[handleSave] UPDATE matched 0 rows for interviewId:",
-        existingInterviewId
-      );
-    }
   }
 
   /*
-   * INSERT NEW INTERVIEW
+   * ======================================
+   * CREATE NEW INTERVIEW
+   * ======================================
    */
+
   if (!interview) {
-    const insertPayload = {
-      user_id: user.id,
-      role: config.role,
-      difficulty:
-        config.difficulty,
-      interview_type:
-        config.interviewType,
-      status,
-      score:
-        feedback.overallScore,
-      feedback,
-      duration_seconds:
+    console.log(
+      "[handleSave] Creating MongoDB interview"
+    );
+
+    interview =
+      await Interview.create({
+        userId,
+
+        role:
+          config.role,
+
+        difficulty:
+          config.difficulty,
+
+        interviewType:
+          config.interviewType,
+
+        status,
+
+        score:
+          feedback.overallScore,
+
+        // feedback,
+
         durationSeconds,
-      started_at:
+
         startedAt,
-      completed_at:
+
         completedAt,
-    };
-
-    console.log(
-      "[handleSave] Inserting interview row:",
-      {
-        table: "interviews",
-        payload:
-          insertPayload,
-      }
-    );
-
-    const {
-      data: inserted,
-      error: insertError,
-    } = await supabase
-      .from("interviews")
-      .insert(insertPayload)
-      .select("id")
-      .single();
-
-    console.log(
-      "[handleSave] Interview insert response:",
-      {
-        data: inserted,
-        error: insertError
-          ? {
-              message:
-                insertError.message,
-              code:
-                insertError.code,
-              details:
-                insertError.details,
-            }
-          : null,
-      }
-    );
-
-    if (insertError) {
-      console.error(
-        "[handleSave] Interview INSERT failed:",
-        {
-          userId: user.id,
-          error:
-            insertError.message,
-          code:
-            insertError.code,
-        }
-      );
-
-      return jsonError(
-        `Failed to save interview: ${insertError.message}`,
-        500
-      );
-    }
-
-    interview = inserted;
+      });
   }
 
   if (!interview) {
     return jsonError(
-      "Failed to resolve the interview row",
+      "Failed to save interview.",
       500
     );
   }
 
   /*
-   * Calculate average question score.
+   * ======================================
+   * FEEDBACK
+   * ======================================
    */
+
   const questionScores =
     evaluations.reduce(
       (
@@ -898,201 +997,103 @@ async function handleSave(
         )
       : feedback.overallScore;
 
-  /*
-   * Feedback table payload.
-   */
-  const feedbackPayload = {
-    interview_id:
-      interview.id,
-
-    user_id:
-      user.id,
-
-    overall_score:
-      feedback.overallScore,
-
-    technical_score:
-      averageQuestionScore,
-
-    communication_score:
-      averageQuestionScore,
-
-    strengths:
-      feedback.strengths,
-
-    improvements:
-      feedback.areasForImprovement,
-
-    summary:
-      feedback.summary,
-  };
-
-  /*
-   * Prevent duplicate feedback rows.
-   */
-  const {
-    data: existingFeedback,
-  } = await supabase
-    .from("feedback")
-    .select("id")
-    .eq(
-      "interview_id",
-      interview.id
-    )
-    .maybeSingle();
-
-  let feedbackData: {
-    id: string;
-  } | null = null;
-
-  let feedbackError: {
-    message: string;
-    code: string;
-    details?: string;
-  } | null = null;
-
-  /*
-   * UPDATE EXISTING FEEDBACK
-   */
-  if (existingFeedback) {
-    console.log(
-      "[handleSave] Updating existing feedback row:",
-      {
-        table: "feedback",
-        feedbackId:
-          existingFeedback.id,
-      }
-    );
-
-    const {
-      data: updatedFeedback,
-      error:
-        updateFeedbackError,
-    } = await supabase
-      .from("feedback")
-      .update(
-        feedbackPayload
-      )
-      .eq(
-        "id",
-        existingFeedback.id
-      )
-      .select("id")
-      .single();
-
-    feedbackData =
-      updatedFeedback;
-
-    feedbackError =
-      updateFeedbackError
-        ? {
-            message:
-              updateFeedbackError.message,
-            code:
-              updateFeedbackError.code,
-            details:
-              updateFeedbackError.details,
-          }
-        : null;
-  }
-
-  /*
-   * INSERT NEW FEEDBACK
-   */
-  else {
-    console.log(
-      "[handleSave] Inserting feedback row:",
-      {
-        table: "feedback",
-        payload:
-          feedbackPayload,
-      }
-    );
-
-    const {
-      data: insertedFeedback,
-      error:
-        insertFeedbackError,
-    } = await supabase
-      .from("feedback")
-      .insert(
-        feedbackPayload
-      )
-      .select("id")
-      .single();
-
-    feedbackData =
-      insertedFeedback;
-
-    feedbackError =
-      insertFeedbackError
-        ? {
-            message:
-              insertFeedbackError.message,
-            code:
-              insertFeedbackError.code,
-            details:
-              insertFeedbackError.details,
-          }
-        : null;
-  }
-
-  console.log(
-    "[handleSave] Feedback write response:",
+  const feedbackData =
     {
-      data: feedbackData,
-      error: feedbackError,
+      interviewId:
+        interview._id,
+
+      userId,
+
+      overallScore:
+        feedback.overallScore,
+
+      technicalScore:
+        averageQuestionScore,
+
+      communicationScore:
+        averageQuestionScore,
+
+      strengths:
+        feedback.strengths,
+
+      improvements:
+        feedback.areasForImprovement,
+
+      summary:
+        feedback.summary,
+    };
+
+  /*
+   * Update existing feedback or
+   * create a new one.
+   */
+  await Feedback.findOneAndUpdate(
+    {
+      interviewId:
+        interview._id,
+
+      userId,
+    },
+    {
+      $set:
+        feedbackData,
+    },
+    {
+      new: true,
+
+      upsert: true,
+
+      runValidators:
+        true,
+
+      setDefaultsOnInsert:
+        true,
     }
   );
 
-  if (feedbackError) {
-    console.error(
-      "[handleSave] Feedback write failed:",
-      {
-        userId: user.id,
-        interviewId:
-          interview.id,
-        error:
-          feedbackError.message,
-        code:
-          feedbackError.code,
-      }
-    );
-
-    return jsonError(
-      `Failed to save feedback: ${feedbackError.message}`,
-      500
-    );
-  }
-
   console.log(
-    "[handleSave] Save completed successfully:",
+    "[handleSave] Interview and feedback saved successfully:",
     {
-      userId: user.id,
+      userId,
+
       interviewId:
-        interview.id,
-      feedbackId:
-        feedbackData?.id,
+        interview._id.toString(),
     }
   );
 
   return NextResponse.json({
     success: true,
-    interview,
+
+    interview: {
+      id: interview._id.toString(),
+    },
   });
 }
 
+/*
+ * ========================================
+ * SAVE ANSWER / INTERVIEW PROGRESS
+ * ========================================
+ */
+
 async function handleSaveAnswer(
-  request: Request,
   body: RequestBody
 ) {
+  /*
+   * Authenticate through JWT.
+   */
+  const userId =
+    await getAuthenticatedUserId();
+
+  if (!userId) {
+    return jsonError(
+      "Your session has expired. Please sign in again.",
+      401
+    );
+  }
+
   const config =
     getInterviewConfig(body);
-
-  const evaluations =
-    parseEvaluations(
-      body.answers
-    );
 
   if ("error" in config) {
     return jsonError(
@@ -1101,9 +1102,15 @@ async function handleSaveAnswer(
     );
   }
 
+  const evaluations =
+    parseEvaluations(
+      body.answers
+    );
+
   if (
     !evaluations ||
-    evaluations.length === 0
+    evaluations.length ===
+      0
   ) {
     return jsonError(
       "The answers payload must be a non-empty array of evaluations",
@@ -1111,71 +1118,11 @@ async function handleSaveAnswer(
     );
   }
 
-  const accessToken =
-    getAccessToken(request);
+  await dbConnect();
 
-  if (!accessToken) {
-    return jsonError(
-      "You must be signed in to save an interview",
-      401
-    );
-  }
-
-  const supabase =
-    createAuthenticatedSupabaseClient(
-      accessToken
-    );
-
-  const {
-    data: { user },
-    error: userError,
-  } =
-    await supabase.auth.getUser(
-      accessToken
-    );
-
-  if (userError || !user) {
-    console.error(
-      "[handleSaveAnswer] Auth failed:",
-      {
-        userError:
-          userError?.message ?? null,
-      }
-    );
-
-    return jsonError(
-      "Your session has expired. Please sign in again.",
-      401
-    );
-  }
-
-  const startedAtRaw =
-    typeof body.startedAt === "string"
-      ? body.startedAt
-      : null;
-
-  const startedAt =
-    startedAtRaw
-      ? new Date(
-          startedAtRaw
-        ).toISOString()
-      : new Date().toISOString();
-
-  const durationSeconds =
-    getDurationSeconds(
-      body.durationSeconds
-    );
-
-  const totalQuestionsRaw =
-    getPositiveInt(
-      body.totalQuestions
-    );
-
-  const totalQuestions =
-    totalQuestionsRaw > 0
-      ? totalQuestionsRaw
-      : evaluations.length;
-
+  /*
+   * Calculate running score.
+   */
   const runningScore =
     Math.round(
       evaluations.reduce(
@@ -1190,163 +1137,188 @@ async function handleSaveAnswer(
         evaluations.length
     );
 
-  /*
-   * Save progress while interview
-   * is still running.
-   */
-  const partialFeedback = {
-    overallScore:
-      runningScore,
+  const totalQuestionsRaw =
+    getPositiveInt(
+      body.totalQuestions
+    );
 
-    totalQuestions,
+  const totalQuestions =
+    totalQuestionsRaw > 0
+      ? totalQuestionsRaw
+      : evaluations.length;
 
-    answeredQuestions:
-      evaluations.length,
+  const partialFeedback =
+    {
+      overallScore:
+        runningScore,
 
-    strengths:
-      evaluations.flatMap(
-        (evaluation) =>
-          evaluation.strengths
-      ),
+      totalQuestions,
 
-    areasForImprovement:
-      evaluations.flatMap(
-        (evaluation) =>
-          evaluation.improvementSuggestions
-      ),
+      answeredQuestions:
+        evaluations.length,
 
-    summary:
-      `Interview in progress — ${evaluations.length} of ${totalQuestions} questions answered so far.`,
+      strengths:
+        evaluations.flatMap(
+          (evaluation) =>
+            evaluation.strengths
+        ),
 
-    questionEvaluations:
-      evaluations,
-  };
+      areasForImprovement:
+        evaluations.flatMap(
+          (evaluation) =>
+            evaluation.improvementSuggestions
+        ),
+
+      summary:
+        `Interview in progress — ${evaluations.length} of ${totalQuestions} questions answered so far.`,
+
+      questionEvaluations:
+        evaluations,
+    };
+
+  const durationSeconds =
+    getDurationSeconds(
+      body.durationSeconds
+    );
+
+  const startedAtRaw =
+    typeof body.startedAt ===
+    "string"
+      ? body.startedAt
+      : null;
+
+  const parsedStartedAt =
+    startedAtRaw
+      ? new Date(
+          startedAtRaw
+        )
+      : new Date();
+
+  const startedAt =
+    Number.isNaN(
+      parsedStartedAt.getTime()
+    )
+      ? new Date()
+      : parsedStartedAt;
 
   const existingInterviewId =
     getString(
       body.interviewId
     );
 
-  let interview: {
-    id: string;
-  } | null = null;
+  let interview:
+    | any
+    | null = null;
 
   /*
-   * UPDATE EXISTING INTERVIEW
+   * ======================================
+   * UPDATE EXISTING
+   * ======================================
    */
+
   if (existingInterviewId) {
-    const updatePayload = {
-      status: "in_progress",
-      score: runningScore,
-      feedback:
-        partialFeedback,
-      duration_seconds:
-        durationSeconds,
-    };
-
-    const {
-      data: updated,
-      error: updateError,
-    } = await supabase
-      .from("interviews")
-      .update(updatePayload)
-      .eq(
-        "id",
-        existingInterviewId
-      )
-      .eq(
-        "user_id",
-        user.id
-      )
-      .select("id")
-      .single();
-
-    if (updateError) {
-      console.error(
-        "[handleSaveAnswer] Interview UPDATE failed:",
+    interview =
+      await Interview.findOneAndUpdate(
         {
-          userId: user.id,
-          interviewId:
+          _id:
             existingInterviewId,
-          error:
-            updateError.message,
-          code:
-            updateError.code,
+
+          userId,
+        },
+        {
+          $set: {
+            status:
+              "in_progress",
+
+            score:
+              runningScore,
+
+            feedback:
+              partialFeedback,
+
+            durationSeconds,
+          },
+        },
+        {
+          new: true,
+
+          runValidators:
+            true,
         }
       );
-
-      return jsonError(
-        `Failed to update interview progress: ${updateError.message}`,
-        500
-      );
-    }
-
-    interview = updated;
   }
 
   /*
-   * INSERT NEW INTERVIEW
+   * ======================================
+   * CREATE NEW
+   * ======================================
    */
-  else {
-    const insertPayload = {
-      user_id: user.id,
-      role: config.role,
-      difficulty:
-        config.difficulty,
-      interview_type:
-        config.interviewType,
-      status: "in_progress",
-      score: runningScore,
-      feedback:
-        partialFeedback,
-      duration_seconds:
+
+  if (!interview) {
+    interview =
+      await Interview.create({
+        userId,
+
+        role:
+          config.role,
+
+        difficulty:
+          config.difficulty,
+
+        interviewType:
+          config.interviewType,
+
+        status:
+          "in_progress",
+
+        score:
+          runningScore,
+
+        feedback:
+          partialFeedback,
+
         durationSeconds,
-      started_at:
+
         startedAt,
-    };
-
-    const {
-      data: inserted,
-      error: insertError,
-    } = await supabase
-      .from("interviews")
-      .insert(insertPayload)
-      .select("id")
-      .single();
-
-    if (insertError) {
-      console.error(
-        "[handleSaveAnswer] Interview INSERT failed:",
-        {
-          userId: user.id,
-          error:
-            insertError.message,
-          code:
-            insertError.code,
-        }
-      );
-
-      return jsonError(
-        `Failed to save interview: ${insertError.message}`,
-        500
-      );
-    }
-
-    interview = inserted;
+      });
   }
 
   if (!interview) {
     return jsonError(
-      "Failed to resolve the interview row",
+      "Failed to save interview progress.",
       500
     );
   }
 
+  console.log(
+    "[handleSaveAnswer] Progress saved:",
+    {
+      userId,
+
+      interviewId:
+        interview._id.toString(),
+
+      answerCount:
+        evaluations.length,
+
+      runningScore,
+    }
+  );
+
   return NextResponse.json({
     success: true,
-    interview,
+
+    interview: {
+      id: interview._id.toString(),
+    },
   });
 }
+
+/*
+ * ========================================
+ * REQUEST BODY
+ * ========================================
+ */
 
 async function parseRequestBody(
   request: Request
@@ -1363,6 +1335,12 @@ async function parseRequestBody(
   }
 }
 
+/*
+ * ========================================
+ * ACTION VALIDATION
+ * ========================================
+ */
+
 function isInterviewAction(
   value: string | null
 ): value is InterviewAction {
@@ -1375,11 +1353,19 @@ function isInterviewAction(
   );
 }
 
+/*
+ * ========================================
+ * POST
+ * ========================================
+ */
+
 export async function POST(
   request: Request
 ) {
   const body =
-    await parseRequestBody(request);
+    await parseRequestBody(
+      request
+    );
 
   if (!body) {
     return jsonError(
@@ -1389,7 +1375,9 @@ export async function POST(
   }
 
   const actionFromBody =
-    getString(body.action);
+    getString(
+      body.action
+    );
 
   const action =
     actionFromBody ??
@@ -1397,7 +1385,11 @@ export async function POST(
       .searchParams
       .get("action");
 
-  if (!isInterviewAction(action)) {
+  if (
+    !isInterviewAction(
+      action
+    )
+  ) {
     return jsonError(
       "Invalid action. Supported actions: question, evaluate, feedback, save, or save-answer",
       400
@@ -1407,31 +1399,26 @@ export async function POST(
   switch (action) {
     case "question":
       return handleQuestion(
-        request,
         body
       );
 
     case "evaluate":
       return handleEvaluate(
-        request,
         body
       );
 
     case "feedback":
       return handleFeedback(
-        request,
         body
       );
 
     case "save":
       return handleSave(
-        request,
         body
       );
 
     case "save-answer":
       return handleSaveAnswer(
-        request,
         body
       );
   }

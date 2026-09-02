@@ -1,206 +1,496 @@
 import { NextResponse } from "next/server";
-import { createAuthenticatedSupabaseClient } from "@/lib/supabase";
-import { analyzeResumeText, generateResumeInterviewQuestions } from "@/lib/grok";
-import type { ResumeAnalysis, ResumeGeneratedInterview } from "@/types";
+import { cookies } from "next/headers";
+import { jwtVerify } from "jose";
+import { dbConnect } from "@/lib/dbConnect";
+import ResumeUpload from "@/lib/models/ResumeUpload";
+import cloudinary from "@/lib/cloudinary";
+import {
+  analyzeResumeText,
+  generateResumeInterviewQuestions,
+} from "@/lib/grok";
+import pdfParse from "pdf-parse";
 
 export const runtime = "nodejs";
 
-type RequestBody = Record<string, unknown>;
+const JWT_SECRET = process.env.JWT_SECRET;
 
-function isRecord(value: unknown): value is RequestBody {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
+if (!JWT_SECRET) {
+  throw new Error("Missing environment variable: JWT_SECRET");
 }
 
-function getString(value: unknown): string | null {
-  if (typeof value !== "string") {
+const secret = new TextEncoder().encode(JWT_SECRET);
+
+/**
+ * Get the authenticated user's ID from the aegis_session cookie.
+ */
+async function getAuthenticatedUserId() {
+  const cookieStore = await cookies();
+  const token = cookieStore.get("aegis_session")?.value;
+
+  if (!token) {
     return null;
   }
 
-  const trimmedValue = value.trim();
-  return trimmedValue || null;
-}
-
-function getErrorMessage(error: unknown, fallback: string): string {
-  if (error instanceof Error && error.message) {
-    return error.message;
-  }
-
-  return fallback;
-}
-
-function jsonError(error: string, status: number) {
-  return NextResponse.json({ error }, { status });
-}
-
-async function extractPdfText(buffer: Buffer): Promise<string> {
   try {
-    console.log("STEP 6: Starting PDF parse");
+    const { payload } = await jwtVerify(token, secret);
 
-    // pdf-parse v1 exports a default-exported function (CommonJS).
-    const pdfParse = (await import("pdf-parse")).default;
+    const userId = payload.userId as string;
 
-    const parsed = await pdfParse(buffer);
-    const extractedText = parsed.text?.trim() ?? "";
-    
-    console.log("STEP 7: PDF parsed", {
-      extractedCharacters: extractedText.length,
-      preview: extractedText.substring(0, 200).replace(/\n/g, " "),
-    });
-    
-    if (extractedText.length < 50) {
-      throw new Error("PDF_EXTRACTION_FAILED: The uploaded document appears to be empty, contains no extractable text, or is an image-based PDF. Please upload a standard text-based PDF.");
+    if (!userId) {
+      return null;
     }
-    
-    return extractedText;
+
+    return userId;
   } catch (error) {
-    console.error("========== RAW ERROR ==========");
-    console.error(error);
-    if (error instanceof Error) {
-      console.error("Message:", error.message);
-      console.error("Stack:", error.stack);
-      console.error("Cause:", error.cause);
-    }
-    console.dir(error, { depth: null });
-    console.error("===============================");
-    throw error;
+    console.error("JWT verification failed:", error);
+    return null;
   }
 }
 
-async function handleAnalyze(request: Request, body: RequestBody) {
-  console.log("STEP 1: Request received");
+/**
+ * Extract text from a PDF buffer.
+ */
+async function extractPdfText(buffer: Buffer) {
+  // Basic PDF validation
+  const header = buffer.subarray(0, 5).toString();
 
-  const accessToken = request.headers.get("authorization")?.match(/^Bearer\s+(.+)$/i)?.[1]?.trim();
-  if (!accessToken) {
-    return jsonError("You must be signed in to analyze a resume.", 401);
+  if (header !== "%PDF-") {
+    throw new Error("The uploaded file is not a valid PDF.");
   }
 
-  const resumeId = getString(body.resumeId);
-  const filePath = getString(body.filePath);
-  const fileName = getString(body.fileName);
+  const data = await pdfParse(buffer);
 
-  if (!resumeId || !filePath) {
-    return jsonError("Resume metadata is missing.", 400);
+  const text = data.text?.trim();
+
+  if (!text || text.length < 50) {
+    throw new Error(
+      "Could not extract enough text from this PDF. Please make sure your resume contains readable text."
+    );
   }
 
-  try {
-    const supabase = createAuthenticatedSupabaseClient(accessToken);
-    const {
-      data: { user },
-      error: userError,
-    } = await supabase.auth.getUser(accessToken);
-
-    if (userError || !user) {
-      return jsonError("Your session has expired. Please sign in again.", 401);
-    }
-
-    console.log("STEP 2: User authenticated", { userId: user.id });
-
-    console.log("STEP 3: Downloading file", { filePath });
-    const { data: fileBlob, error: downloadError } = await supabase.storage
-      .from("resumes")
-      .download(filePath);
-
-    if (downloadError || !fileBlob) {
-      throw new Error(downloadError?.message ?? "Failed to download the resume file.");
-    }
-
-    console.log("STEP 4: File downloaded", {
-      size: fileBlob.size,
-      type: fileBlob.type,
-    });
-
-    const buffer = Buffer.from(await fileBlob.arrayBuffer());
-    const header = buffer.subarray(0, 10).toString("utf8");
-    console.log("STEP 5: Buffer created", {
-      length: buffer.length,
-      header,
-    });
-
-    if (!header.startsWith("%PDF-")) {
-      console.error("WARNING: Buffer does not start with %PDF-. File may not be a valid PDF.");
-    }
-
-    const extractedText = await extractPdfText(buffer);
-
-    if (!extractedText) {
-      throw new Error("The uploaded PDF did not contain any extractable text.");
-    }
-
-    console.log("STEP 8: Starting Groq analysis");
-    const analysis = await analyzeResumeText({
-      resumeText: extractedText,
-      fileName: fileName ?? "resume.pdf",
-    });
-    console.log("STEP 9: Groq analysis complete");
-
-    console.log("STEP 10: Generating interview");
-    const generatedInterview = await generateResumeInterviewQuestions({
-      analysis,
-      resumeText: extractedText,
-    });
-
-    const payload: ResumeAnalysis & { generatedInterview: ResumeGeneratedInterview } = {
-      ...analysis,
-      generatedInterview,
-    };
-
-    console.log("STEP 11: Updating database");
-    const { error: updateError } = await supabase
-      .from("resume_uploads")
-      .update({ analysis: payload, parsed_data: { extractedText, fileName: fileName ?? "resume.pdf" } })
-      .eq("id", resumeId)
-      .eq("user_id", user.id);
-
-    if (updateError) {
-      throw new Error(updateError.message);
-    }
-
-    console.log("STEP 12: Success");
-    return NextResponse.json({ success: true, analysis: payload });
-  } catch (error) {
-    console.error("========== RAW ERROR ==========");
-    console.error(error);
-    const detail = getErrorMessage(error, "An unknown error occurred.");
-    console.error("===============================");
-    
-    if (detail.includes("API key budget exceeded") || detail.includes("402") || detail.includes("insufficient_quota")) {
-      return NextResponse.json({ error: "AI_QUOTA_EXCEEDED: The AI service quota has been exceeded. Please try again later." }, { status: 402 });
-    }
-    
-    if (detail.includes("PDF_EXTRACTION_FAILED")) {
-      return NextResponse.json({ error: detail }, { status: 422 });
-    }
-    
-    return NextResponse.json({ error: `AI_ANALYSIS_FAILED: ${detail}` }, { status: 500 });
-  }
+  return text;
 }
 
+/**
+ * POST /api/resume
+ *
+ * Actions:
+ * - upload
+ * - analyze
+ * - delete
+ */
 export async function POST(request: Request) {
-  let body: unknown = null;
-
   try {
-    body = await request.json();
-  } catch (error) {
-    console.error("========== RAW ERROR ==========");
-    console.error(error);
-    if (error instanceof Error) {
-      console.error("Message:", error.message);
-      console.error("Stack:", error.stack);
-      console.error("Cause:", error.cause);
+    const userId = await getAuthenticatedUserId();
+
+    if (!userId) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: "Unauthorized",
+        },
+        { status: 401 }
+      );
     }
-    console.dir(error, { depth: null });
-    console.error("===============================");
-    body = null;
-  }
 
-  if (!body || !isRecord(body)) {
-    return jsonError("Request body must be a JSON object.", 400);
-  }
+    const contentType = request.headers.get("content-type") || "";
 
-  const action = getString(body.action);
-  if (action !== "analyze") {
-    return jsonError("Unsupported action.", 400);
-  }
+    /*
+     * ============================================================
+     * UPLOAD RESUME
+     * ============================================================
+     */
+    if (contentType.includes("multipart/form-data")) {
+      const formData = await request.formData();
 
-  return handleAnalyze(request, body);
+      const file = formData.get("file");
+
+      if (!(file instanceof File)) {
+        return NextResponse.json(
+          {
+            success: false,
+            message: "No resume file was provided.",
+          },
+          { status: 400 }
+        );
+      }
+
+      if (file.type !== "application/pdf") {
+        return NextResponse.json(
+          {
+            success: false,
+            message: "Only PDF resumes are supported.",
+          },
+          { status: 400 }
+        );
+      }
+
+      if (file.size === 0) {
+        return NextResponse.json(
+          {
+            success: false,
+            message: "The uploaded file is empty.",
+          },
+          { status: 400 }
+        );
+      }
+
+      /*
+       * Convert the browser File into a Buffer.
+       */
+      const arrayBuffer = await file.arrayBuffer();
+      const buffer = Buffer.from(arrayBuffer);
+
+      /*
+       * Extract text before uploading.
+       * This prevents storing unusable PDFs.
+       */
+      const extractedText = await extractPdfText(buffer);
+
+      await dbConnect();
+
+      /*
+       * Upload PDF to Cloudinary.
+       *
+       * resource_type: "raw" is important because the resume
+       * is a PDF/document rather than an image.
+       */
+      const uploadResult = await new Promise<any>((resolve, reject) => {
+        const uploadStream = cloudinary.uploader.upload_stream(
+          {
+            folder: "aegis/resumes",
+            resource_type: "raw",
+            public_id: `${Date.now()}-${file.name.replace(
+              /\.pdf$/i,
+              ""
+            )}`,
+          },
+          (error, result) => {
+            if (error) {
+              reject(error);
+              return;
+            }
+
+            resolve(result);
+          }
+        );
+
+        uploadStream.end(buffer);
+      });
+
+      /*
+       * Save resume metadata in MongoDB.
+       */
+      const resume = await ResumeUpload.create({
+        userId,
+        fileName: file.name,
+        fileUrl: uploadResult.secure_url,
+        publicId: uploadResult.public_id,
+        fileSize: file.size,
+        mimeType: file.type,
+        extractedText,
+        parsedData: {
+          extractedText,
+          fileName: file.name,
+        },
+        analysis: null,
+        uploadedAt: new Date(),
+      });
+
+      return NextResponse.json({
+        success: true,
+        message: "Resume uploaded successfully.",
+        resume: {
+          id: resume._id.toString(),
+          fileName: resume.fileName,
+          fileUrl: resume.fileUrl,
+          fileSize: resume.fileSize,
+          mimeType: resume.mimeType,
+          uploadedAt: resume.uploadedAt,
+          analysis: resume.analysis,
+        },
+      });
+    }
+
+    /*
+     * ============================================================
+     * JSON ACTIONS
+     * ============================================================
+     */
+
+    const body = await request.json();
+
+    const { action } = body;
+
+    /*
+     * ============================================================
+     * ANALYZE RESUME
+     * ============================================================
+     */
+    if (action === "analyze") {
+      const { resumeId } = body;
+
+      if (!resumeId) {
+        return NextResponse.json(
+          {
+            success: false,
+            message: "Resume ID is required.",
+          },
+          { status: 400 }
+        );
+      }
+
+      await dbConnect();
+
+      /*
+       * IMPORTANT:
+       * Find by both _id and userId so one user cannot analyze
+       * another user's resume.
+       */
+      const resume = await ResumeUpload.findOne({
+        _id: resumeId,
+        userId,
+      });
+
+      if (!resume) {
+        return NextResponse.json(
+          {
+            success: false,
+            message: "Resume not found.",
+          },
+          { status: 404 }
+        );
+      }
+
+      /*
+       * Use the text we already extracted during upload.
+       *
+       * This means we don't need to download the PDF from
+       * Cloudinary every time we analyze it.
+       */
+      const resumeText =
+        resume.extractedText ||
+        resume.parsedData?.extractedText ||
+        "";
+
+      if (!resumeText || resumeText.length < 50) {
+        return NextResponse.json(
+          {
+            success: false,
+            message: "No readable resume text was found.",
+          },
+          { status: 400 }
+        );
+      }
+
+      /*
+       * Send resume text to Groq.
+       */
+      const analysis = await analyzeResumeText({
+        resumeText,
+        fileName: resume.fileName,
+      });
+
+      /*
+       * Generate interview questions based on the resume.
+       */
+      const interviewQuestions = await generateResumeInterviewQuestions({
+        analysis,
+        resumeText,
+      });
+
+      /*
+       * Save everything to MongoDB.
+       */
+      resume.analysis = {
+        ...analysis,
+        interviewQuestions,
+        generatedInterview: interviewQuestions,
+      };
+
+      resume.parsedData = {
+        ...(resume.parsedData || {}),
+        extractedText: resumeText,
+        fileName: resume.fileName,
+      };
+
+      await resume.save();
+
+      return NextResponse.json({
+        success: true,
+        message: "Resume analyzed successfully.",
+        analysis: resume.analysis,
+        resume: {
+          id: resume._id.toString(),
+          fileName: resume.fileName,
+          fileUrl: resume.fileUrl,
+          uploadedAt: resume.uploadedAt,
+        },
+      });
+    }
+
+    /*
+     * ============================================================
+     * DELETE RESUME
+     * ============================================================
+     */
+    if (action === "delete") {
+      const { resumeId } = body;
+
+      if (!resumeId) {
+        return NextResponse.json(
+          {
+            success: false,
+            message: "Resume ID is required.",
+          },
+          { status: 400 }
+        );
+      }
+
+      await dbConnect();
+
+      /*
+       * Again, check userId so users can only delete their own
+       * resumes.
+       */
+      const resume = await ResumeUpload.findOne({
+        _id: resumeId,
+        userId,
+      });
+
+      if (!resume) {
+        return NextResponse.json(
+          {
+            success: false,
+            message: "Resume not found.",
+          },
+          { status: 404 }
+        );
+      }
+
+      /*
+       * Delete PDF from Cloudinary.
+       */
+      if (resume.publicId) {
+        try {
+          await cloudinary.uploader.destroy(resume.publicId, {
+            resource_type: "raw",
+          });
+        } catch (cloudinaryError) {
+          /*
+           * We don't want a Cloudinary deletion problem to leave
+           * the user unable to delete the MongoDB record.
+           */
+          console.error(
+            "Cloudinary deletion failed:",
+            cloudinaryError
+          );
+        }
+      }
+
+      /*
+       * Delete MongoDB record.
+       */
+      await ResumeUpload.deleteOne({
+        _id: resume._id,
+        userId,
+      });
+
+      return NextResponse.json({
+        success: true,
+        message: "Resume deleted successfully.",
+      });
+    }
+
+    return NextResponse.json(
+      {
+        success: false,
+        message: "Invalid action.",
+      },
+      { status: 400 }
+    );
+  } catch (error: any) {
+    console.error("[Resume API] Error:", error);
+
+    /*
+     * Groq/API quota errors.
+     */
+    if (
+      error?.status === 429 ||
+      error?.code === "rate_limit_exceeded"
+    ) {
+      return NextResponse.json(
+        {
+          success: false,
+          message:
+            "AI usage limit reached. Please try again later.",
+        },
+        { status: 429 }
+      );
+    }
+
+    return NextResponse.json(
+      {
+        success: false,
+        message:
+          error?.message ||
+          "Something went wrong while processing your resume.",
+      },
+      { status: 500 }
+    );
+  }
+}
+
+/**
+ * GET /api/resume
+ *
+ * Returns all resumes belonging to the authenticated user.
+ */
+export async function GET() {
+  try {
+    const userId = await getAuthenticatedUserId();
+
+    if (!userId) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: "Unauthorized",
+        },
+        { status: 401 }
+      );
+    }
+
+    await dbConnect();
+
+    const resumes = await ResumeUpload.find({
+      userId,
+    })
+      .sort({ uploadedAt: -1 })
+      .lean();
+
+    return NextResponse.json({
+      success: true,
+      resumes: resumes.map((resume: any) => ({
+        id: resume._id.toString(),
+        fileName: resume.fileName,
+        fileUrl: resume.fileUrl,
+        publicId: resume.publicId,
+        fileSize: resume.fileSize,
+        mimeType: resume.mimeType,
+        uploadedAt: resume.uploadedAt,
+        analysis: resume.analysis || null,
+        parsedData: resume.parsedData || null,
+      })),
+    });
+  } catch (error: any) {
+    console.error("[Resume API] GET error:", error);
+
+    return NextResponse.json(
+      {
+        success: false,
+        message: "Failed to load resumes.",
+      },
+      { status: 500 }
+    );
+  }
 }

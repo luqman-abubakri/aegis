@@ -3,7 +3,6 @@
 import { useEffect, useRef, useState } from "react";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { useAuth } from "@/contexts/AuthProvider";
-import { supabase } from "@/lib/supabase";
 import { LoadingSpinner } from "@/components/LoadingSpinner";
 import {
   User,
@@ -25,242 +24,209 @@ import Link from "next/link";
 interface ProfileRecord {
   id: string;
   email: string | null;
-  full_name: string | null;
-  avatar_url: string | null;
-  created_at: string;
-  updated_at: string;
+  fullName: string | null;
+  avatarUrl: string;
+  createdAt: string;
+  updatedAt: string;
 }
 
 interface InterviewRecord {
   id: string;
   role: string;
   difficulty: string;
-  interview_type: string;
+  interviewType: string;
   status: string;
   score: number | null;
-  duration_seconds: number | null;
-  created_at: string;
-  completed_at: string | null;
+  durationSeconds: number;
+  createdAt: string;
+  completedAt: string | null;
 }
 
 interface FeedbackRecord {
   id: string;
-  interview_id: string;
-  overall_score: number | null;
-  created_at: string;
+  interviewId: string;
+  overallScore: number | null;
+  createdAt: string;
+}
+
+interface ProfileApiResponse {
+  success: boolean;
+  message?: string;
+  profile?: ProfileRecord;
+  interviews?: InterviewRecord[];
+  feedbackRecords?: FeedbackRecord[];
+}
+
+interface AvatarApiResponse {
+  success: boolean;
+  message?: string;
+  avatarUrl?: string;
 }
 
 export default function ProfilePage() {
   const { user, loading: authLoading } = useAuth();
 
-  const [profile, setProfile] = useState<ProfileRecord | null>(null);
-  const [interviews, setInterviews] = useState<InterviewRecord[]>([]);
-  const [feedbackRecords, setFeedbackRecords] = useState<
-    FeedbackRecord[]
+  const [profile, setProfile] =
+    useState<ProfileRecord | null>(null);
+
+  const [interviews, setInterviews] = useState<
+    InterviewRecord[]
   >([]);
+
+  const [feedbackRecords, setFeedbackRecords] =
+    useState<FeedbackRecord[]>([]);
 
   const [loading, setLoading] = useState(true);
 
   // Edit profile state
   const [isEditing, setIsEditing] = useState(false);
   const [fullName, setFullName] = useState("");
-  const [selectedFile, setSelectedFile] = useState<File | null>(
-    null
-  );
-  const [previewUrl, setPreviewUrl] = useState<string | null>(
-    null
-  );
 
-  const [savingProfile, setSavingProfile] = useState(false);
-  const [profileError, setProfileError] = useState("");
-  const [profileSuccess, setProfileSuccess] = useState("");
+  const [selectedFile, setSelectedFile] =
+    useState<File | null>(null);
 
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [previewUrl, setPreviewUrl] =
+    useState<string | null>(null);
+
+  const [savingProfile, setSavingProfile] =
+    useState(false);
+
+  const [profileError, setProfileError] =
+    useState("");
+
+  const [profileSuccess, setProfileSuccess] =
+    useState("");
+
+  const fileInputRef =
+    useRef<HTMLInputElement>(null);
 
   /**
-   * Fetch profile, interviews and feedback
+   * ==========================================
+   * FETCH PROFILE DATA
+   * ==========================================
+   *
+   * Everything comes from MongoDB through:
+   *
+   * GET /api/profile
    */
   useEffect(() => {
-    async function fetchUserData() {
+    async function fetchProfileData() {
       if (!user) return;
-
-      console.log("[Profile] Loading data for user:", user.id);
 
       setLoading(true);
 
+      console.log(
+        "[Profile] Fetching MongoDB profile data..."
+      );
+
       try {
-        const [profileRes, interviewsRes, feedbackRes] =
-          await Promise.all([
-            supabase
-              .from("profiles")
-              .select(
-                "id, email, full_name, avatar_url, created_at, updated_at"
-              )
-              .eq("id", user.id)
-              .maybeSingle(),
-
-            supabase
-              .from("interviews")
-              .select("*")
-              .eq("user_id", user.id)
-              .eq("status", "completed")
-              .order("created_at", {
-                ascending: false,
-              }),
-
-            supabase
-              .from("feedback")
-              .select(
-                "id, interview_id, overall_score, created_at"
-              )
-              .eq("user_id", user.id)
-              .order("created_at", {
-                ascending: false,
-              }),
-          ]);
-
-        /**
-         * PROFILE
-         */
-        if (profileRes.error) {
-          console.error("[Profile] Profile query failed:", {
-            message: profileRes.error.message,
-            code: profileRes.error.code,
-            details: profileRes.error.details,
-          });
-        } else if (profileRes.data) {
-          setProfile(profileRes.data as ProfileRecord);
-          setFullName(profileRes.data.full_name || "");
-        } else {
-          /**
-           * This should normally not happen because your
-           * authentication setup creates the profile.
-           */
-          console.log(
-            "[Profile] No profile found. Attempting to create one..."
-          );
-
-          const fallbackProfile = {
-            id: user.id,
-            email: user.email || "",
-            full_name: user.user_metadata?.full_name || "",
-            avatar_url: null,
-          };
-
-          const {
-            data: createdProfile,
-            error: createProfileError,
-          } = await supabase
-            .from("profiles")
-            .insert(fallbackProfile)
-            .select(
-              "id, email, full_name, avatar_url, created_at, updated_at"
-            )
-            .single();
-
-          if (createProfileError) {
-            console.error(
-              "[Profile] Failed to create profile:",
-              createProfileError
-            );
-          } else if (createdProfile) {
-            setProfile(createdProfile as ProfileRecord);
-            setFullName(createdProfile.full_name || "");
+        const response = await fetch(
+          "/api/profile",
+          {
+            method: "GET",
+            credentials: "include",
+            cache: "no-store",
           }
-        }
+        );
 
-        /**
-         * INTERVIEWS
-         */
-        console.log("[Profile] Interviews query response:", {
-          userId: user.id,
-          count: interviewsRes.data?.length ?? 0,
-          error: interviewsRes.error
-            ? {
-                message: interviewsRes.error.message,
-                code: interviewsRes.error.code,
-              }
-            : null,
-        });
+        const data: ProfileApiResponse =
+          await response.json();
 
-        if (interviewsRes.error) {
-          console.error(
-            "[Profile] Interviews query failed:",
-            interviewsRes.error
-          );
-        } else if (interviewsRes.data) {
-          setInterviews(
-            interviewsRes.data as InterviewRecord[]
+        console.log(
+          "[Profile] API response:",
+          data
+        );
+
+        if (!response.ok || !data.success) {
+          throw new Error(
+            data.message ||
+              "Failed to load profile."
           );
         }
 
-        /**
-         * FEEDBACK
-         */
-        console.log("[Profile] Feedback query response:", {
-          userId: user.id,
-          count: feedbackRes.data?.length ?? 0,
-          error: feedbackRes.error
-            ? {
-                message: feedbackRes.error.message,
-                code: feedbackRes.error.code,
-              }
-            : null,
-        });
+        if (data.profile) {
+          setProfile(data.profile);
 
-        if (feedbackRes.error) {
-          console.error(
-            "[Profile] Feedback query failed:",
-            feedbackRes.error
-          );
-        } else if (feedbackRes.data) {
-          setFeedbackRecords(
-            feedbackRes.data as FeedbackRecord[]
+          setFullName(
+            data.profile.fullName || ""
           );
         }
+
+        setInterviews(
+          data.interviews || []
+        );
+
+        setFeedbackRecords(
+          data.feedbackRecords || []
+        );
       } catch (error) {
-        console.error("[Profile] Unexpected fetch error:", {
-          userId: user.id,
-          error:
-            error instanceof Error
-              ? error.message
-              : String(error),
-        });
+        console.error(
+          "[Profile] Failed to load profile:",
+          error
+        );
+
+        setProfileError(
+          error instanceof Error
+            ? error.message
+            : "Failed to load profile."
+        );
       } finally {
         setLoading(false);
       }
     }
 
     if (user && !authLoading) {
-      fetchUserData();
+      fetchProfileData();
     }
   }, [user, authLoading]);
 
   /**
-   * Open edit modal
+   * ==========================================
+   * OPEN EDIT PROFILE
+   * ==========================================
    */
   const handleEditProfile = () => {
     setProfileError("");
     setProfileSuccess("");
 
-    setFullName(profile?.full_name || "");
+    // MongoDB profile is the source of truth.
+    setFullName(
+      profile?.fullName || ""
+    );
+
     setSelectedFile(null);
-    setPreviewUrl(profile?.avatar_url || null);
+
+    setPreviewUrl(
+      profile?.avatarUrl || null
+    );
 
     setIsEditing(true);
   };
 
   /**
-   * Close edit modal
+   * ==========================================
+   * CANCEL EDIT
+   * ==========================================
    */
   const handleCancelEdit = () => {
-    if (previewUrl && selectedFile) {
-      URL.revokeObjectURL(previewUrl);
+    if (
+      previewUrl &&
+      selectedFile
+    ) {
+      URL.revokeObjectURL(
+        previewUrl
+      );
     }
 
     setSelectedFile(null);
-    setPreviewUrl(profile?.avatar_url || null);
-    setFullName(profile?.full_name || "");
+
+    setPreviewUrl(
+      profile?.avatarUrl || null
+    );
+
+    setFullName(
+      profile?.fullName || ""
+    );
 
     setProfileError("");
     setProfileSuccess("");
@@ -269,12 +235,15 @@ export default function ProfilePage() {
   };
 
   /**
-   * Handle profile image selection
+   * ==========================================
+   * HANDLE IMAGE SELECTION
+   * ==========================================
    */
   const handleFileChange = (
     event: React.ChangeEvent<HTMLInputElement>
   ) => {
-    const file = event.target.files?.[0];
+    const file =
+      event.target.files?.[0];
 
     if (!file) return;
 
@@ -288,39 +257,66 @@ export default function ProfilePage() {
       "image/jpg",
     ];
 
-    if (!allowedTypes.includes(file.type)) {
+    if (
+      !allowedTypes.includes(
+        file.type
+      )
+    ) {
       setProfileError(
         "Please select a JPG, PNG, or WebP image."
       );
 
-      // Reset input
       event.target.value = "";
 
       return;
     }
 
-    const maxSize = 5 * 1024 * 1024;
+    const maxSize =
+      5 * 1024 * 1024;
 
     if (file.size > maxSize) {
-      setProfileError("Image must be smaller than 5MB.");
+      setProfileError(
+        "Image must be smaller than 5MB."
+      );
 
       event.target.value = "";
 
       return;
     }
 
-    if (previewUrl && selectedFile) {
-      URL.revokeObjectURL(previewUrl);
+    if (
+      previewUrl &&
+      selectedFile
+    ) {
+      URL.revokeObjectURL(
+        previewUrl
+      );
     }
 
-    const objectUrl = URL.createObjectURL(file);
+    const objectUrl =
+      URL.createObjectURL(file);
 
     setSelectedFile(file);
     setPreviewUrl(objectUrl);
   };
 
   /**
-   * Upload avatar to Supabase Storage
+   * ==========================================
+   * UPLOAD AVATAR
+   * ==========================================
+   *
+   * Avatar upload flow:
+   *
+   * Profile Page
+   *      ↓
+   * POST /api/profile/avatar
+   *      ↓
+   * JWT authentication
+   *      ↓
+   * Cloudinary
+   *      ↓
+   * secure_url
+   *
    */
   const uploadAvatar = async (
     file: File
@@ -331,115 +327,96 @@ export default function ProfilePage() {
       );
     }
 
-    /**
-     * Verify the actual Supabase session.
-     */
-    const {
-      data: { user: currentUser },
-      error: authError,
-    } = await supabase.auth.getUser();
+    const formData = new FormData();
 
-    console.log(
-      "[Profile] AEGIS auth user:",
-      user.id
+    formData.append(
+      "file",
+      file
     );
 
     console.log(
-      "[Profile] Supabase auth user:",
-      currentUser?.id
+      "[Profile] Uploading avatar through AEGIS API..."
     );
 
-    if (authError) {
-      console.error(
-        "[Profile] Auth check failed:",
-        authError
-      );
+    const response = await fetch(
+      "/api/profile/avatar",
+      {
+        method: "POST",
+        credentials: "include",
+        body: formData,
+      }
+    );
 
-      throw new Error(
-        "Your session could not be verified."
-      );
+    const responseText =
+      await response.text();
+
+    let data: AvatarApiResponse | null =
+      null;
+
+    if (responseText.trim()) {
+      try {
+        data =
+          JSON.parse(responseText);
+      } catch (parseError) {
+        console.error(
+          "[Profile] Failed to parse avatar API response:",
+          parseError
+        );
+
+        throw new Error(
+          "The server returned an invalid avatar upload response."
+        );
+      }
     }
-
-    if (!currentUser) {
-      throw new Error(
-        "Your Supabase session has expired. Please sign in again."
-      );
-    }
-
-    if (currentUser.id !== user.id) {
-      throw new Error(
-        "Authentication mismatch. Please sign in again."
-      );
-    }
-
-    /**
-     * Get file extension.
-     */
-    const fileExt =
-      file.name.split(".").pop()?.toLowerCase() || "jpg";
-
-    /**
-     * Each user gets their own folder.
-     *
-     * avatars/
-     *   user-id/
-     *     avatar-123456789.jpg
-     */
-    const filePath = `${user.id}/avatar-${Date.now()}.${fileExt}`;
 
     console.log(
-      "[Profile] Uploading avatar:",
-      filePath
+      "[Profile] Avatar upload response:",
+      {
+        status: response.status,
+        statusText:
+          response.statusText,
+        data,
+      }
     );
 
-    /**
-     * Upload file.
-     *
-     * upsert is intentionally false because every
-     * upload gets a unique filename.
-     */
-    const { error: uploadError } = await supabase.storage
-      .from("avatars")
-      .upload(filePath, file, {
-        cacheControl: "3600",
-        upsert: false,
-        contentType: file.type,
-      });
-
-    if (uploadError) {
-      console.error(
-        "[Profile] Avatar upload failed:",
-        uploadError
+    if (!response.ok) {
+      throw new Error(
+        data?.message ||
+          `Failed to upload profile picture. Server returned ${response.status}.`
       );
-
-      throw new Error(uploadError.message);
     }
 
-    /**
-     * Get public URL.
-     *
-     * The "avatars" bucket must be public for this.
-     */
-    const { data } = supabase.storage
-      .from("avatars")
-      .getPublicUrl(filePath);
-
-    if (!data?.publicUrl) {
+    if (!data?.success) {
       throw new Error(
-        "Could not generate the profile picture URL."
+        data?.message ||
+          "Profile picture upload was not confirmed by the server."
+      );
+    }
+
+    if (!data.avatarUrl) {
+      throw new Error(
+        "Avatar upload succeeded but no image URL was returned."
       );
     }
 
     console.log(
       "[Profile] Avatar uploaded successfully:",
-      data.publicUrl
+      data.avatarUrl
     );
 
-    return data.publicUrl;
+    return data.avatarUrl;
   };
 
   /**
-   * Save profile changes
+   * ==========================================
+   * SAVE PROFILE
+   * ==========================================
+   *
+   * Sends profile information to MongoDB through:
+   *
+   * PATCH /api/profile
+   *
+   * Avatar is uploaded to Cloudinary first.
    */
   const handleSaveProfile = async () => {
     if (!user) return;
@@ -447,10 +424,14 @@ export default function ProfilePage() {
     setProfileError("");
     setProfileSuccess("");
 
-    const trimmedName = fullName.trim();
+    const trimmedName =
+      fullName.trim();
 
     if (!trimmedName) {
-      setProfileError("Please enter your full name.");
+      setProfileError(
+        "Please enter your full name."
+      );
+
       return;
     }
 
@@ -458,6 +439,7 @@ export default function ProfilePage() {
       setProfileError(
         "Your name must be at least 2 characters."
       );
+
       return;
     }
 
@@ -465,90 +447,142 @@ export default function ProfilePage() {
       setProfileError(
         "Your name must be less than 100 characters."
       );
+
       return;
     }
 
     setSavingProfile(true);
 
     try {
-      let avatarUrl = profile?.avatar_url || null;
+      let avatarUrl =
+        profile?.avatarUrl || "";
 
       /**
-       * Upload new image if selected.
+       * Upload image to Cloudinary
+       * if a new profile picture was selected.
        */
       if (selectedFile) {
-        avatarUrl = await uploadAvatar(selectedFile);
+        avatarUrl =
+          await uploadAvatar(
+            selectedFile
+          );
       }
 
-      console.log("[Profile] Updating profile:", {
-        userId: user.id,
-        fullName: trimmedName,
-        hasAvatar: Boolean(avatarUrl),
-      });
+      console.log(
+        "[Profile] Updating MongoDB profile:",
+        {
+          fullName: trimmedName,
+          hasAvatar:
+            Boolean(avatarUrl),
+        }
+      );
 
       /**
-       * Update profiles table.
+       * Update MongoDB through API.
        */
-      const {
-        data: updatedProfile,
-        error: updateError,
-      } = await supabase
-        .from("profiles")
-        .update({
-          full_name: trimmedName,
-          avatar_url: avatarUrl,
-          updated_at: new Date().toISOString(),
-        })
-        .eq("id", user.id)
-        .select(
-          "id, email, full_name, avatar_url, created_at, updated_at"
-        )
-        .single();
-
-      if (updateError) {
-        console.error(
-          "[Profile] Profile update failed:",
-          updateError
+      const response =
+        await fetch(
+          "/api/profile",
+          {
+            method: "PATCH",
+            credentials: "include",
+            headers: {
+              "Content-Type":
+                "application/json",
+            },
+            body: JSON.stringify({
+              fullName:
+                trimmedName,
+              avatarUrl,
+            }),
+          }
         );
 
-        throw new Error(updateError.message);
+      /**
+       * Read response as text first.
+       *
+       * This prevents:
+       * "Unexpected end of JSON input"
+       */
+      const responseText =
+        await response.text();
+
+      let data:
+        | ProfileApiResponse
+        | null = null;
+
+      if (responseText.trim()) {
+        try {
+          data =
+            JSON.parse(
+              responseText
+            );
+        } catch (parseError) {
+          console.error(
+            "[Profile] Failed to parse API response:",
+            parseError
+          );
+
+          throw new Error(
+            "The server returned an invalid response."
+          );
+        }
+      }
+
+      console.log(
+        "[Profile] Update response:",
+        {
+          status:
+            response.status,
+          statusText:
+            response.statusText,
+          data,
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error(
+          data?.message ||
+            `Failed to update profile. Server returned ${response.status}.`
+        );
+      }
+
+      if (!data?.success) {
+        throw new Error(
+          data?.message ||
+            "Profile update was not confirmed by the server."
+        );
       }
 
       /**
-       * Update local UI immediately.
+       * Update local profile
+       * from API response.
        */
-      setProfile(updatedProfile as ProfileRecord);
-      setFullName(updatedProfile.full_name || "");
+      if (data.profile) {
+        setProfile(
+          data.profile
+        );
+
+        setFullName(
+          data.profile.fullName ||
+            ""
+        );
+
+        setPreviewUrl(
+          data.profile.avatarUrl ||
+            null
+        );
+      }
+
       setSelectedFile(null);
-      setPreviewUrl(updatedProfile.avatar_url || null);
 
       setProfileSuccess(
         "Profile updated successfully!"
       );
 
       /**
-       * Update auth metadata as well.
+       * MongoDB is now the source of truth.
        *
-       * This helps other parts of AEGIS that currently
-       * use user.user_metadata.full_name.
-       */
-      const { error: metadataError } =
-        await supabase.auth.updateUser({
-          data: {
-            full_name: trimmedName,
-            avatar_url: avatarUrl,
-          },
-        });
-
-      if (metadataError) {
-        console.warn(
-          "[Profile] Auth metadata update failed:",
-          metadataError
-        );
-      }
-
-      /**
-       * Close modal after showing success.
        */
       setTimeout(() => {
         setIsEditing(false);
@@ -571,9 +605,14 @@ export default function ProfilePage() {
   };
 
   /**
-   * Loading state
+   * ==========================================
+   * LOADING
+   * ==========================================
    */
-  if (authLoading || loading) {
+  if (
+    authLoading ||
+    loading
+  ) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-[#020817]">
         <LoadingSpinner
@@ -585,57 +624,75 @@ export default function ProfilePage() {
   }
 
   /**
-   * User information
+   * ==========================================
+   * USER INFORMATION
+   * ==========================================
+   *
+   * MongoDB profile is the source of truth.
+   *
+   * Do NOT use:
+   * user.user_metadata
+   * user.created_at
    */
   const name =
-    profile?.full_name ||
-    user?.user_metadata?.full_name ||
+    profile?.fullName ||
     "Aegis User";
 
   const email =
     profile?.email ||
-    user?.email ||
     "";
 
   const createdAt =
-    profile?.created_at ||
-    user?.created_at;
+    profile?.createdAt ||
+    null;
 
-  const formattedCreatedAt = createdAt
-    ? new Date(createdAt).toLocaleDateString(
-        undefined,
-        {
-          year: "numeric",
-          month: "long",
-          day: "numeric",
-        }
-      )
-    : "N/A";
+  const formattedCreatedAt =
+    createdAt
+      ? new Date(
+          createdAt
+        ).toLocaleDateString(
+          undefined,
+          {
+            year: "numeric",
+            month: "long",
+            day: "numeric",
+          }
+        )
+      : "N/A";
 
   const avatarUrl =
-    profile?.avatar_url || null;
+    profile?.avatarUrl ||
+    null;
 
   /**
-   * Interview statistics
+   * ==========================================
+   * INTERVIEW STATISTICS
+   * ==========================================
    */
   const totalInterviews =
     interviews.length;
 
   const scoredFeedback =
     feedbackRecords.filter(
-      (f) =>
-        typeof f.overall_score === "number"
+      (feedback) =>
+        typeof feedback.overallScore ===
+        "number"
     );
 
   const avgScore =
     scoredFeedback.length > 0
       ? Math.round(
           scoredFeedback.reduce(
-            (acc, f) =>
-              acc +
-              (f.overall_score || 0),
+            (
+              total,
+              feedback
+            ) =>
+              total +
+              (feedback.overallScore ??
+                0),
             0
-          ) / scoredFeedback.length
+          ) /
+            scoredFeedback.length
         )
       : null;
 
@@ -643,8 +700,9 @@ export default function ProfilePage() {
     scoredFeedback.length > 0
       ? Math.max(
           ...scoredFeedback.map(
-            (f) =>
-              f.overall_score || 0
+            (feedback) =>
+              feedback.overallScore ??
+              0
           )
         )
       : null;
@@ -654,7 +712,7 @@ export default function ProfilePage() {
       <main className="min-h-screen bg-[#020817] pt-28 pb-20 text-white">
         <div className="mx-auto max-w-5xl px-5 sm:px-6 lg:px-8">
 
-          {/* Back */}
+          {/* BACK */}
           <Link
             href="/dashboard"
             className="mb-8 inline-flex items-center gap-2 text-sm text-slate-400 transition-colors hover:text-white"
@@ -663,9 +721,7 @@ export default function ProfilePage() {
             Back to Dashboard
           </Link>
 
-          {/* =========================
-              PROFILE HEADER
-          ========================== */}
+          {/* PROFILE HEADER */}
           <div className="mb-10 rounded-3xl border border-slate-800 bg-slate-900/60 p-8 backdrop-blur-xl">
             <div className="flex flex-col gap-6 sm:flex-row sm:items-start">
 
@@ -691,7 +747,9 @@ export default function ProfilePage() {
 
                   <button
                     type="button"
-                    onClick={handleEditProfile}
+                    onClick={
+                      handleEditProfile
+                    }
                     aria-label="Edit profile picture"
                     className="absolute -bottom-2 -right-2 flex h-9 w-9 items-center justify-center rounded-full border-2 border-[#020817] bg-blue-600 text-white shadow-lg transition-colors hover:bg-blue-500"
                   >
@@ -718,6 +776,7 @@ export default function ProfilePage() {
                           size={16}
                           className="text-blue-400"
                         />
+
                         <span className="break-all">
                           {email}
                         </span>
@@ -728,9 +787,12 @@ export default function ProfilePage() {
                           size={16}
                           className="text-cyan-400"
                         />
+
                         <span>
                           Member since{" "}
-                          {formattedCreatedAt}
+                          {
+                            formattedCreatedAt
+                          }
                         </span>
                       </div>
 
@@ -739,7 +801,9 @@ export default function ProfilePage() {
 
                   <button
                     type="button"
-                    onClick={handleEditProfile}
+                    onClick={
+                      handleEditProfile
+                    }
                     className="mx-auto inline-flex items-center justify-center gap-2 rounded-xl border border-slate-700 bg-slate-800/70 px-5 py-3 text-sm font-semibold text-white transition-all hover:border-blue-500/50 hover:bg-slate-800 sm:mx-0"
                   >
                     <Pencil size={16} />
@@ -752,9 +816,7 @@ export default function ProfilePage() {
             </div>
           </div>
 
-          {/* =========================
-              EDIT PROFILE MODAL
-          ========================== */}
+          {/* EDIT PROFILE MODAL */}
           {isEditing && (
             <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-4 py-6 backdrop-blur-sm">
 
@@ -775,8 +837,12 @@ export default function ProfilePage() {
 
                   <button
                     type="button"
-                    onClick={handleCancelEdit}
-                    disabled={savingProfile}
+                    onClick={
+                      handleCancelEdit
+                    }
+                    disabled={
+                      savingProfile
+                    }
                     className="flex h-10 w-10 items-center justify-center rounded-xl text-slate-400 transition-colors hover:bg-slate-800 hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
                     aria-label="Close"
                   >
@@ -811,7 +877,9 @@ export default function ProfilePage() {
                       onClick={() =>
                         fileInputRef.current?.click()
                       }
-                      disabled={savingProfile}
+                      disabled={
+                        savingProfile
+                      }
                       className="absolute -bottom-2 -right-2 flex h-11 w-11 items-center justify-center rounded-full border-4 border-[#0b1220] bg-blue-600 text-white transition-colors hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-50"
                       aria-label="Upload profile picture"
                     >
@@ -825,7 +893,9 @@ export default function ProfilePage() {
                     onClick={() =>
                       fileInputRef.current?.click()
                     }
-                    disabled={savingProfile}
+                    disabled={
+                      savingProfile
+                    }
                     className="mt-4 inline-flex items-center gap-2 text-sm font-medium text-blue-400 transition-colors hover:text-blue-300 disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     <Upload size={15} />
@@ -840,7 +910,9 @@ export default function ProfilePage() {
                     ref={fileInputRef}
                     type="file"
                     accept="image/jpeg,image/png,image/webp,image/jpg"
-                    onChange={handleFileChange}
+                    onChange={
+                      handleFileChange
+                    }
                     className="hidden"
                   />
 
@@ -875,17 +947,22 @@ export default function ProfilePage() {
                     id="fullName"
                     type="text"
                     value={fullName}
-                    onChange={(e) =>
-                      setFullName(e.target.value)
+                    onChange={(event) =>
+                      setFullName(
+                        event.target.value
+                      )
                     }
                     placeholder="Enter your full name"
                     maxLength={100}
-                    disabled={savingProfile}
+                    disabled={
+                      savingProfile
+                    }
                     className="w-full rounded-xl border border-slate-700 bg-slate-900/80 px-4 py-3 text-white outline-none transition-all placeholder:text-slate-500 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 disabled:cursor-not-allowed disabled:opacity-60"
                   />
 
                   <p className="mt-2 text-xs text-slate-500">
-                    {fullName.length}/100 characters
+                    {fullName.length}/100
+                    characters
                   </p>
 
                 </div>
@@ -932,8 +1009,12 @@ export default function ProfilePage() {
 
                   <button
                     type="button"
-                    onClick={handleCancelEdit}
-                    disabled={savingProfile}
+                    onClick={
+                      handleCancelEdit
+                    }
+                    disabled={
+                      savingProfile
+                    }
                     className="rounded-xl border border-slate-700 px-5 py-3 text-sm font-semibold text-slate-300 transition-colors hover:bg-slate-800 hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     Cancel
@@ -941,11 +1022,14 @@ export default function ProfilePage() {
 
                   <button
                     type="button"
-                    onClick={handleSaveProfile}
-                    disabled={savingProfile}
+                    onClick={
+                      handleSaveProfile
+                    }
+                    disabled={
+                      savingProfile
+                    }
                     className="inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-blue-600 to-cyan-500 px-6 py-3 text-sm font-semibold text-white shadow-lg shadow-blue-600/20 transition-all hover:scale-[1.02] hover:shadow-blue-600/30 disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:scale-100"
                   >
-
                     {savingProfile ? (
                       <>
                         <Loader2
@@ -960,7 +1044,6 @@ export default function ProfilePage() {
                         Save Changes
                       </>
                     )}
-
                   </button>
 
                 </div>
@@ -969,9 +1052,7 @@ export default function ProfilePage() {
             </div>
           )}
 
-          {/* =========================
-              STATS
-          ========================== */}
+          {/* STATS */}
           <div className="mb-10 grid gap-6 sm:grid-cols-3">
 
             {/* Total interviews */}
@@ -1031,9 +1112,7 @@ export default function ProfilePage() {
 
           </div>
 
-          {/* =========================
-              RECENT INTERVIEWS
-          ========================== */}
+          {/* RECENT INTERVIEWS */}
           <div className="rounded-3xl border border-slate-800 bg-slate-900/60 p-8 backdrop-blur-xl">
 
             <h2 className="mb-6 text-xl font-bold">
@@ -1058,81 +1137,93 @@ export default function ProfilePage() {
             ) : (
               <div className="space-y-4">
 
-                {interviews.map((item) => (
-                  <div
-                    key={item.id}
-                    className="flex flex-col justify-between gap-4 rounded-2xl border border-slate-800 bg-slate-800/40 p-5 sm:flex-row sm:items-center"
-                  >
+                {interviews.map(
+                  (item) => (
+                    <div
+                      key={item.id}
+                      className="flex flex-col justify-between gap-4 rounded-2xl border border-slate-800 bg-slate-800/40 p-5 sm:flex-row sm:items-center"
+                    >
 
-                    <div className="min-w-0">
+                      <div className="min-w-0">
 
-                      <div className="flex flex-wrap items-center gap-3">
+                        <div className="flex flex-wrap items-center gap-3">
 
-                        <span className="text-lg font-semibold text-white">
-                          {item.role}
-                        </span>
-
-                        <span className="rounded-full bg-slate-700/60 px-3 py-1 text-xs capitalize text-slate-300">
-                          {item.interview_type}
-                        </span>
-
-                        <span className="rounded-full bg-blue-500/10 px-3 py-1 text-xs capitalize text-blue-400">
-                          {item.difficulty}
-                        </span>
-
-                      </div>
-
-                      <div className="mt-1 flex flex-wrap items-center gap-4 text-xs text-slate-400">
-
-                        <span>
-                          Completed on{" "}
-                          {new Date(
-                            item.created_at
-                          ).toLocaleDateString(
-                            undefined,
-                            {
-                              year: "numeric",
-                              month: "short",
-                              day: "numeric",
-                            }
-                          )}
-                        </span>
-
-                        {item.duration_seconds ? (
-                          <span>
-                            {Math.round(
-                              item.duration_seconds /
-                                60
-                            )}{" "}
-                            min
+                          <span className="text-lg font-semibold text-white">
+                            {item.role}
                           </span>
-                        ) : null}
+
+                          <span className="rounded-full bg-slate-700/60 px-3 py-1 text-xs capitalize text-slate-300">
+                            {
+                              item.interviewType
+                            }
+                          </span>
+
+                          <span className="rounded-full bg-blue-500/10 px-3 py-1 text-xs capitalize text-blue-400">
+                            {
+                              item.difficulty
+                            }
+                          </span>
+
+                        </div>
+
+                        <div className="mt-1 flex flex-wrap items-center gap-4 text-xs text-slate-400">
+
+                          <span>
+                            Completed on{" "}
+                            {new Date(
+                              item.completedAt ||
+                                item.createdAt
+                            ).toLocaleDateString(
+                              undefined,
+                              {
+                                year: "numeric",
+                                month: "short",
+                                day: "numeric",
+                              }
+                            )}
+                          </span>
+
+                          {item.durationSeconds >
+                            0 ? (
+                            <span>
+                              {Math.round(
+                                item.durationSeconds /
+                                  60
+                              )}{" "}
+                              min
+                            </span>
+                          ) : null}
+
+                        </div>
+
+                      </div>
+
+                      <div className="flex items-center gap-4">
+
+                        {typeof item.score ===
+                          "number" && (
+                          <div
+                            className={`rounded-xl px-4 py-2 text-sm font-bold ${
+                              item.score >=
+                              80
+                                ? "border border-green-500/30 bg-green-500/10 text-green-400"
+                                : item.score >=
+                                  60
+                                ? "border border-yellow-500/30 bg-yellow-500/10 text-yellow-400"
+                                : "border border-red-500/30 bg-red-500/10 text-red-400"
+                            }`}
+                          >
+                            Score:{" "}
+                            {item.score}
+                            /100
+                          </div>
+                        )}
 
                       </div>
 
                     </div>
-
-                    <div className="flex items-center gap-4">
-
-                      {typeof item.score ===
-                        "number" && (
-                        <div
-                          className={`rounded-xl px-4 py-2 text-sm font-bold ${
-                            item.score >= 80
-                              ? "border border-green-500/30 bg-green-500/10 text-green-400"
-                              : item.score >= 60
-                              ? "border border-yellow-500/30 bg-yellow-500/10 text-yellow-400"
-                              : "border border-red-500/30 bg-red-500/10 text-red-400"
-                          }`}
-                        >
-                          Score: {item.score}/100
-                        </div>
-                      )}
-
-                    </div>
-
-                  </div>
-                ))}
+                  )
+                )}
 
               </div>
             )}

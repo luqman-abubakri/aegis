@@ -4,7 +4,6 @@ import { useState, useCallback, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { useAuth } from "@/contexts/AuthProvider";
-import { supabase } from "@/lib/supabase";
 import { LoadingSpinner } from "@/components/LoadingSpinner";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import type { ResumeAnalysis, ResumeGeneratedInterview } from "@/types";
@@ -27,10 +26,10 @@ import Link from "next/link";
 
 interface ResumeRecord {
   id: string;
-  file_name: string | null;
-  file_size: number | null;
-  file_path: string | null;
-  uploaded_at: string;
+  fileName: string | null;
+  fileUrl: string | null;
+  fileSize: number | null;
+  uploadedAt: string;
   analysis:
     | (ResumeAnalysis & {
         generatedInterview?: ResumeGeneratedInterview;
@@ -47,6 +46,19 @@ function formatBytes(bytes: number): string {
     return `${(bytes / 1024).toFixed(1)} KB`;
   }
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+async function fetchResumes(): Promise<ResumeRecord[]> {
+  const response = await fetch("/api/resume", {
+    credentials: "include",
+  });
+  const payload = await response.json();
+
+  if (!response.ok || !payload.success) {
+    throw new Error(payload.message || "Failed to load resumes.");
+  }
+
+  return payload.resumes as ResumeRecord[];
 }
 
 export default function ResumePage() {
@@ -102,40 +114,10 @@ export default function ResumePage() {
         return;
       }
 
-      console.log("[Resume] Loading resumes for user:", user.id);
-
       try {
-        const { data, error } = await supabase
-          .from("resume_uploads")
-          .select("*")
-          .eq("user_id", user.id)
-          .order("uploaded_at", { ascending: false });
-
-        console.log("[Resume] Fetch response:", {
-          userId: user.id,
-          count: data?.length ?? 0,
-          error: error
-            ? {
-                message: error.message,
-                code: error.code,
-              }
-            : null,
-        });
-
-        if (error) {
-          console.error("[Resume] Fetch failed:", {
-            message: error.message,
-            code: error.code,
-            details: error.details,
-          });
-        } else if (data) {
-          setResumes(data as ResumeRecord[]);
-        }
+        setResumes(await fetchResumes());
       } catch (err) {
-        console.error("[Resume] Unexpected fetch error:", {
-          userId: user.id,
-          error: err instanceof Error ? err.message : String(err),
-        });
+        console.error("[Resume] Failed to load resumes:", err);
       } finally {
         setLoading(false);
       }
@@ -177,157 +159,28 @@ export default function ResumePage() {
       setUploadProgress(10);
 
       try {
-        const fileExt = file.name.split(".").pop() || "pdf";
+        const formData = new FormData();
+        formData.append("file", file);
 
-        const filePath = `${user.id}/${Date.now()}.${fileExt}`;
-
-        console.log("[Resume] Uploading file:", {
-          userId: user.id,
-          fileName: file.name,
-          fileSize: file.size,
-          bucketPath: filePath,
-        });
-
-        /*
-         * Simulated upload progress
-         */
         const progressInterval = window.setInterval(() => {
           setUploadProgress((prev) => (prev < 90 ? prev + 5 : prev));
         }, 200);
 
-        /*
-         * Upload to Supabase Storage
-         */
-        const { data: uploadData, error: uploadError } =
-          await supabase.storage.from("resumes").upload(filePath, file, {
-            cacheControl: "3600",
-            upsert: false,
-          });
-
+        const uploadResponse = await fetch("/api/resume", {
+          method: "POST",
+          body: formData,
+          credentials: "include",
+        });
         window.clearInterval(progressInterval);
 
-        console.log("[Resume] Storage upload response:", {
-          path: uploadData?.path ?? null,
-          error: uploadError
-            ? {
-                message: uploadError.message,
-                name: uploadError.name,
-              }
-            : null,
-        });
-
-        if (uploadError) {
-          throw new Error(
-            `Storage upload failed: ${uploadError.message}`
-          );
+        const uploadPayload = await uploadResponse.json();
+        if (!uploadResponse.ok || !uploadPayload.success) {
+          throw new Error(uploadPayload.message || "Resume upload failed.");
         }
 
-        /*
-         * Check if user already has a resume
-         */
-        const { data: existingResume, error: existingResumeError } =
-          await supabase
-            .from("resume_uploads")
-            .select("id, file_path")
-            .eq("user_id", user.id)
-            .maybeSingle();
-
-        if (existingResumeError) {
-          console.error(
-            "[Resume] Existing resume lookup failed:",
-            existingResumeError
-          );
-        }
-
-        let resumeId: string;
-
-        /*
-         * Update existing resume
-         */
-        if (existingResume) {
-          console.log("[Resume] Updating existing resume:", {
-            existingId: existingResume.id,
-            oldFilePath: existingResume.file_path,
-          });
-
-          /*
-           * Delete old storage file
-           */
-          if (
-            existingResume.file_path &&
-            existingResume.file_path !== filePath
-          ) {
-            const { error: oldFileDeleteError } = await supabase.storage
-              .from("resumes")
-              .remove([existingResume.file_path]);
-
-            if (oldFileDeleteError) {
-              console.error(
-                "[Resume] Failed to delete old storage file:",
-                oldFileDeleteError
-              );
-            }
-          }
-
-          const { data: updateData, error: updateError } =
-            await supabase
-              .from("resume_uploads")
-              .update({
-                file_path: filePath,
-                file_name: file.name,
-                file_size: file.size,
-                analysis: null,
-                parsed_data: null,
-              })
-              .eq("id", existingResume.id)
-              .select("id")
-              .single();
-
-          if (updateError) {
-            throw new Error(
-              `Database update failed: ${updateError.message}`
-            );
-          }
-
-          if (!updateData?.id) {
-            throw new Error(
-              "Database update succeeded but no resume ID was returned."
-            );
-          }
-
-          resumeId = updateData.id;
-        } else {
-          /*
-           * Insert new resume
-           */
-          const insertPayload = {
-            user_id: user.id,
-            file_path: filePath,
-            file_name: file.name,
-            file_size: file.size,
-          };
-
-          console.log("[Resume] Inserting metadata:", insertPayload);
-
-          const { data: insertData, error: dbError } = await supabase
-            .from("resume_uploads")
-            .insert(insertPayload)
-            .select("id")
-            .single();
-
-          if (dbError) {
-            throw new Error(
-              `Database insert failed: ${dbError.message}`
-            );
-          }
-
-          if (!insertData?.id) {
-            throw new Error(
-              "Database insert succeeded but no resume ID was returned."
-            );
-          }
-
-          resumeId = insertData.id;
+        const resumeId = uploadPayload.resume?.id as string | undefined;
+        if (!resumeId) {
+          throw new Error("Resume upload did not return an ID.");
         }
 
         /*
@@ -344,36 +197,25 @@ export default function ResumePage() {
         setAnalysisProgress(40);
 
         /*
-         * Get current session
-         */
-        const {
-          data: { session },
-        } = await supabase.auth.getSession();
-
-        const accessToken = session?.access_token ?? "";
-
-        /*
          * Analyze resume
          */
         const response = await fetch("/api/resume", {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            Authorization: `Bearer ${accessToken}`,
           },
           body: JSON.stringify({
             action: "analyze",
             resumeId,
-            filePath,
-            fileName: file.name,
           }),
+          credentials: "include",
         });
 
         if (!response.ok) {
           const payload = await response.json().catch(() => null);
 
           throw new Error(
-            payload?.error ?? "Resume analysis failed."
+            payload?.message ?? "Resume analysis failed."
           );
         }
 
@@ -388,21 +230,7 @@ export default function ResumePage() {
         /*
          * Refresh resume list
          */
-        const { data: refreshed, error: refreshError } = await supabase
-          .from("resume_uploads")
-          .select("*")
-          .eq("user_id", user.id)
-          .order("uploaded_at", { ascending: false });
-
-        if (refreshError) {
-          console.error("[Resume] Refresh query failed:", {
-            message: refreshError.message,
-            code: refreshError.code,
-            details: refreshError.details,
-          });
-        } else if (refreshed) {
-          setResumes(refreshed as ResumeRecord[]);
-        }
+        setResumes(await fetchResumes());
       } catch (err: unknown) {
         console.error("[Resume] Upload/analysis failed:", {
           userId: user.id,
@@ -447,36 +275,27 @@ export default function ResumePage() {
       console.log("[Resume] Analyzing existing resume:", {
         userId: user.id,
         resumeId: resume.id,
-        filePath: resume.file_path,
-        fileName: resume.file_name,
+        fileName: resume.fileName,
       });
 
       try {
-        const {
-          data: { session },
-        } = await supabase.auth.getSession();
-
-        const accessToken = session?.access_token ?? "";
-
         const response = await fetch("/api/resume", {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            Authorization: `Bearer ${accessToken}`,
           },
           body: JSON.stringify({
             action: "analyze",
             resumeId: resume.id,
-            filePath: resume.file_path,
-            fileName: resume.file_name,
           }),
+          credentials: "include",
         });
 
         if (!response.ok) {
           const payload = await response.json().catch(() => null);
 
           throw new Error(
-            payload?.error ?? "Resume analysis failed."
+            payload?.message ?? "Resume analysis failed."
           );
         }
 
@@ -491,21 +310,7 @@ export default function ResumePage() {
         /*
          * Refresh list
          */
-        const { data: refreshed, error: refreshError } = await supabase
-          .from("resume_uploads")
-          .select("*")
-          .eq("user_id", user.id)
-          .order("uploaded_at", { ascending: false });
-
-        if (refreshError) {
-          console.error("[Resume] Refresh query failed:", {
-            message: refreshError.message,
-            code: refreshError.code,
-            details: refreshError.details,
-          });
-        } else if (refreshed) {
-          setResumes(refreshed as ResumeRecord[]);
-        }
+        setResumes(await fetchResumes());
       } catch (err: unknown) {
         console.error("[Resume] Analysis failed:", {
           userId: user.id,
@@ -591,46 +396,20 @@ export default function ResumePage() {
       console.log("[Resume] Deleting resume:", {
         userId: user.id,
         resumeId: resume.id,
-        filePath: resume.file_path,
       });
 
       try {
-        /*
-         * Delete storage file
-         */
-        if (resume.file_path) {
-          const { error: storageDeleteError } = await supabase.storage
-            .from("resumes")
-            .remove([resume.file_path]);
-
-          if (storageDeleteError) {
-            console.error(
-              "[Resume] Storage delete failed:",
-              storageDeleteError
-            );
-          }
-        }
-
-        /*
-         * Delete database record
-         */
-        const { data: deleteData, error: deleteError } =
-          await supabase
-            .from("resume_uploads")
-            .delete()
-            .eq("id", resume.id)
-            .select("id")
-            .single();
-
-        if (deleteError) {
-          throw new Error(
-            `Database delete failed: ${deleteError.message}`
-          );
-        }
-
-        console.log("[Resume] DB delete response:", {
-          deletedId: deleteData?.id ?? null,
+        const response = await fetch("/api/resume", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({ action: "delete", resumeId: resume.id }),
         });
+        const payload = await response.json();
+
+        if (!response.ok || !payload.success) {
+          throw new Error(payload.message || "Failed to delete resume.");
+        }
 
         setResumes((prev) =>
           prev.filter((r) => r.id !== resume.id)
@@ -699,20 +478,10 @@ export default function ResumePage() {
    * View PDF
    */
   const handleViewPdf = async (resume: ResumeRecord) => {
-    if (!resume.file_path) return;
+    if (!resume.fileUrl) return;
 
     try {
-      const { data, error } = await supabase.storage
-        .from("resumes")
-        .createSignedUrl(resume.file_path, 60);
-
-      if (error) {
-        throw error;
-      }
-
-      if (data?.signedUrl) {
-        window.open(data.signedUrl, "_blank");
-      }
+      window.open(resume.fileUrl, "_blank", "noopener,noreferrer");
     } catch (error) {
       console.error("Failed to open PDF", error);
       setError("Failed to open PDF file.");
@@ -1011,22 +780,22 @@ export default function ResumePage() {
 
                           <div className="min-w-0 flex-1">
                             <p className="break-words font-semibold text-white">
-                              {resume.file_name ||
+                              {resume.fileName ||
                                 "Untitled"}
                             </p>
 
                             <div className="mt-1 flex flex-wrap items-center gap-3 text-xs text-slate-400">
-                              {resume.file_size && (
+                              {resume.fileSize && (
                                 <span>
                                   {formatBytes(
-                                    resume.file_size
+                                    resume.fileSize
                                   )}
                                 </span>
                               )}
 
                               <span>
                                 {new Date(
-                                  resume.uploaded_at
+                                  resume.uploadedAt
                                 ).toLocaleDateString(
                                   undefined,
                                   {
@@ -1493,7 +1262,7 @@ export default function ResumePage() {
         open={resumeToDelete !== null}
         title="Delete Resume"
         message={`Are you sure you want to delete "${
-          resumeToDelete?.file_name ?? "this resume"
+          resumeToDelete?.fileName ?? "this resume"
         }"? This action cannot be undone.`}
         confirmLabel="Delete"
         variant="danger"

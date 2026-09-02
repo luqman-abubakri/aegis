@@ -14,6 +14,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { signIn } from "@/services/auth";
 import { LoadingSpinner } from "@/components/LoadingSpinner";
+import { useAuth } from "@/contexts/AuthProvider";
 
 export default function SignInPage() {
   const [showPassword, setShowPassword] = useState(false);
@@ -21,25 +22,41 @@ export default function SignInPage() {
   const [password, setPassword] = useState("");
   const [formError, setFormError] = useState("");
   const [loading, setLoading] = useState(false);
+
   const router = useRouter();
+  const { refreshUser } = useAuth();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setFormError("");
 
-    if (!email || !password) {
+    const normalizedEmail = email.trim().toLowerCase();
+
+    if (!normalizedEmail || !password) {
       setFormError("Please fill in all fields");
       return;
     }
 
     setLoading(true);
-    const result = await signIn(email, password);
-    setLoading(false);
 
-    if (!result.success) {
-      setFormError(result.message || "Login failed");
-    } else {
+    try {
+      const result = await signIn(normalizedEmail, password);
+
+      if (!result.success) {
+        setFormError(result.message || "Login failed");
+        return;
+      }
+
+      // Make AuthProvider aware of the new JWT session
+      await refreshUser();
+
       router.push("/dashboard");
+    } catch (error) {
+      console.error("[Sign In] Unexpected error:", error);
+
+      setFormError("Something went wrong while signing in. Please try again.");
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -89,7 +106,7 @@ export default function SignInPage() {
             animate={{ opacity: 1, y: 0 }}
             className="mb-6 rounded-xl border border-red-500/20 bg-red-500/10 px-5 py-3 text-sm text-red-400"
           >
-{formError}
+            {formError}
           </motion.div>
         )}
 
@@ -109,6 +126,7 @@ export default function SignInPage() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="you@example.com"
+                autoComplete="email"
                 className="w-full bg-transparent px-3 py-4 outline-none placeholder:text-slate-500"
               />
             </div>
@@ -128,6 +146,7 @@ export default function SignInPage() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="••••••••"
+                autoComplete="current-password"
                 className="w-full bg-transparent px-3 py-4 outline-none placeholder:text-slate-500"
               />
 
@@ -135,6 +154,9 @@ export default function SignInPage() {
                 type="button"
                 onClick={() => setShowPassword(!showPassword)}
                 className="text-slate-500 transition hover:text-white"
+                aria-label={
+                  showPassword ? "Hide password" : "Show password"
+                }
               >
                 {showPassword ? (
                   <EyeOff size={20} />
@@ -182,7 +204,6 @@ export default function SignInPage() {
           <span className="text-sm text-slate-500">OR</span>
           <div className="h-px flex-1 bg-slate-800" />
         </div>
-
 
         {/* Footer */}
         <div className="mt-8 text-center text-sm text-slate-400">

@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { supabase } from "@/lib/supabase";
+import { useAuth } from "@/contexts/AuthProvider";
 import { LoadingSpinner } from "@/components/LoadingSpinner";
 
 interface ProtectedRouteProps {
@@ -10,26 +10,25 @@ interface ProtectedRouteProps {
 }
 
 export function ProtectedRoute({ children }: ProtectedRouteProps) {
-  const [authorized, setAuthorized] = useState(false);
   const router = useRouter();
+  const { user, loading } = useAuth();
+  const [authorized, setAuthorized] = useState(false);
 
   useEffect(() => {
-    const checkAuth = async () => {
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
+    if (loading) {
+      return;
+    }
 
-      if (!session) {
-        router.replace("/sign-in");
-      } else {
-        setAuthorized(true);
-      }
-    };
+    if (!user) {
+      setAuthorized(false);
+      router.replace("/sign-in");
+      return;
+    }
 
-    checkAuth();
-  }, [router]);
+    setAuthorized(true);
+  }, [user, loading, router]);
 
-  if (!authorized) {
+  if (loading || !authorized) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-[#020817]">
         <LoadingSpinner size="lg" />
@@ -39,4 +38,3 @@ export function ProtectedRoute({ children }: ProtectedRouteProps) {
 
   return <>{children}</>;
 }
-

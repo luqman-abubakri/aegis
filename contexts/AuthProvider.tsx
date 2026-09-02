@@ -9,11 +9,16 @@ import {
   type ReactNode,
 } from "react";
 import { useRouter } from "next/navigation";
-import { supabase } from "@/lib/supabase";
-import type { User } from "@supabase/supabase-js";
+
+export interface AuthUser {
+  id: string;
+  email: string;
+  name: string;
+  avatarUrl?: string;
+}
 
 interface AuthContextType {
-  user: User | null;
+  user: AuthUser | null;
   loading: boolean;
   error: string | null;
   refreshUser: () => Promise<void>;
@@ -23,65 +28,87 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<User | null>(null);
+  const [user, setUser] = useState<AuthUser | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
   const router = useRouter();
 
+  /**
+   * Get the currently authenticated user
+   * by checking the MongoDB/JWT session.
+   */
   const refreshUser = useCallback(async () => {
     try {
-      const {
-        data: { session },
-        error: sessionError,
-      } = await supabase.auth.getSession();
+      setError(null);
 
-      if (sessionError) {
-        setError(sessionError.message);
+      const response = await fetch("/api/auth/me", {
+        method: "GET",
+        credentials: "include",
+      });
+
+      const data = await response.json();
+
+      if (!response.ok || !data.success) {
         setUser(null);
         return;
       }
 
-      setUser(session?.user ?? null);
+      setUser(data.user);
     } catch (err: unknown) {
-      const message =
-        err instanceof Error ? err.message : "Failed to get session";
-      setError(message);
+      console.error("[Auth] Failed to refresh user:", err);
+
       setUser(null);
+
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Failed to get authenticated user"
+      );
     } finally {
       setLoading(false);
     }
   }, []);
 
+  /**
+   * Log the user out by clearing the
+   * MongoDB/JWT session cookie.
+   */
   const logout = useCallback(async () => {
     try {
       setLoading(true);
-      await supabase.auth.signOut();
+      setError(null);
+
+      const response = await fetch("/api/auth/logout", {
+        method: "POST",
+        credentials: "include",
+      });
+
+      const data = await response.json();
+
+      if (!response.ok || !data.success) {
+        throw new Error(data.message || "Logout failed");
+      }
+
       setUser(null);
+
       router.push("/");
     } catch (err: unknown) {
-      console.error("[Auth] Logout error:", {
-        error: err instanceof Error ? err.message : String(err),
-      });
+      console.error("[Auth] Logout error:", err);
+
+      setError(
+        err instanceof Error ? err.message : "Failed to sign out"
+      );
     } finally {
       setLoading(false);
     }
   }, [router]);
 
+  /**
+   * Check the session when the application starts.
+   */
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     void refreshUser();
-
-    // Listen for auth state changes
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
-      setUser(session?.user ?? null);
-      setLoading(false);
-    });
-
-    return () => {
-      subscription.unsubscribe();
-    };
   }, [refreshUser]);
 
   return (
@@ -108,4 +135,3 @@ export function useAuth(): AuthContextType {
 
   return context;
 }
-
