@@ -6,7 +6,7 @@ import Footer from "@/components/Footer";
 import { AuthProvider } from "@/contexts/AuthProvider";
 
 export const metadata: Metadata = {
-  title: "Aegis",
+  title: "Nexly",
   description: "AI-powered technical interview assistant",
 };
 

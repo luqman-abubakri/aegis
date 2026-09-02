@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { motion } from "framer-motion";
 import {
-  ShieldCheck,
+  BrainCircuit,
   Mail,
   Lock,
   User,
@@ -111,7 +111,7 @@ export default function SignUpPage() {
         {/* Logo */}
         <div className="mb-10 flex flex-col items-center">
           <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-blue-600 to-cyan-500 shadow-lg shadow-blue-600/30">
-            <ShieldCheck size={34} />
+            <BrainCircuit size={34} />
           </div>
 
           <h1 className="mt-6 text-3xl font-black">

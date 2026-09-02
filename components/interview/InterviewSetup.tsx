@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { ArrowRight, Mic, Type, ShieldCheck, Clock3 } from "lucide-react";
+import { ArrowRight, Mic, Type, BrainCircuit, Clock3 } from "lucide-react";
 import type {
   Difficulty,
   InterviewConfig,
@@ -92,7 +92,7 @@ export function InterviewSetup({
       {/* Header */}
       <div className="mb-12 text-center">
         <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-blue-500/20 bg-blue-500/10 px-5 py-2 text-sm text-blue-300 backdrop-blur-md">
-          <ShieldCheck size={16} />
+          <BrainCircuit size={16} />
           Configure Your Interview
         </div>
 

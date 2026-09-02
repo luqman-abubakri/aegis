@@ -7,7 +7,7 @@ import {
   FileText,
   BarChart3,
   Clock3,
-  ShieldCheck,
+  BrainCircuit,
   ArrowRight,
 } from "lucide-react";
 import Link from "next/link";
@@ -50,10 +50,10 @@ const features = [
     color: "from-sky-500 to-blue-500",
   },
   {
-    icon: ShieldCheck,
+    icon: BrainCircuit,
     title: "Personal Learning Roadmap",
     description:
-      "After every interview, Aegis generates a personalized roadmap to improve your technical skills.",
+      "After every interview, Nexly generates a personalized roadmap to improve your technical skills.",
     color: "from-indigo-500 to-violet-500",
   },
 ];
@@ -84,7 +84,7 @@ export default function FeaturesPage() {
           transition={{ delay: 0.2 }}
           className="mt-8 max-w-3xl text-lg leading-8 text-slate-400"
         >
-          Aegis combines AI-powered interviews, resume analysis, personalized
+          Nexly combines AI-powered interviews, resume analysis, personalized
           coaching, and progress tracking into one platform built specifically
           for aspiring tech professionals.
         </motion.p>
@@ -127,7 +127,7 @@ export default function FeaturesPage() {
 
       {/* How It Works */}
       <section className="mx-auto mt-36 max-w-6xl px-6 text-center">
-        <h2 className="text-4xl font-bold">How Aegis Works In Three Simple Steps</h2>
+        <h2 className="text-4xl font-bold">How Nexly Works In Three Simple Steps</h2>
 
         <div className="mt-16 grid gap-10 md:grid-cols-3">
           {[
@@ -158,7 +158,7 @@ export default function FeaturesPage() {
           </h2>
 
           <p className="mx-auto mt-5 max-w-2xl text-base leading-7 text-slate-400 sm:text-lg sm:leading-8">
-            Start practicing today with Aegis and prepare for your next
+            Start practicing today with Nexly and prepare for your next
             technical interview with confidence.
           </p>
 

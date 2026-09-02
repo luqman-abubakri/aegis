@@ -636,7 +636,7 @@ export default function ProfilePage() {
    */
   const name =
     profile?.fullName ||
-    "Aegis User";
+    "Nexly User";
 
   const email =
     profile?.email ||
@@ -999,7 +999,7 @@ export default function ProfilePage() {
                   </div>
 
                   <p className="mt-2 text-xs text-slate-500">
-                    Your email is managed by your AEGIS account.
+                    Your email is managed by your Nexly account.
                   </p>
 
                 </div>

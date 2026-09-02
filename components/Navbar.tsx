@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Menu, X, ShieldCheck, LogOut, User as UserIcon } from "lucide-react";
+import { Menu, X, BrainCircuit, LogOut, User as UserIcon } from "lucide-react";
 import { useState } from "react";
 import { useAuth } from "@/contexts/AuthProvider";
 import { useRouter } from "next/navigation";
@@ -36,12 +36,12 @@ const Navbar = () => {
         {/* Logo */}
         <Link href="/" className="flex items-center gap-3">
           <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-gradient-to-br from-blue-600 to-cyan-500 shadow-lg shadow-blue-600/30 transition-transform duration-300 hover:scale-110">
-            <ShieldCheck size={24} className="text-white" />
+            <BrainCircuit size={24} className="text-white" />
           </div>
 
           <div>
             <h1 className="text-xl font-bold tracking-wide text-white">
-              AEGIS
+              Nexly
             </h1>
             <p className="text-xs text-slate-400">
               AI Interview Coach

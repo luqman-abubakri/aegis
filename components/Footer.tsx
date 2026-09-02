@@ -1,7 +1,7 @@
 "use client"
 import {
   ArrowUp,
-  ShieldCheck,
+  BrainCircuit,
   CheckCircle2,
   Code2,
   Sparkles,
@@ -32,14 +32,14 @@ const Footer = () => {
           <div className="group max-w-md">
             <div className="flex items-center justify-center gap-3 lg:justify-start">
               <div className="flex h-11 w-11 items-center justify-center rounded-xl border border-[#2B7FFF]/30 bg-[#2B7FFF]/10 transition-all duration-300 group-hover:border-[#2B7FFF]/60 group-hover:bg-[#2B7FFF]/20 group-hover:shadow-[0_0_25px_rgba(43,127,255,0.2)]">
-                <ShieldCheck
+                <BrainCircuit
                   size={23}
                   className="text-[#2B7FFF] transition-transform duration-300 group-hover:scale-110"
                 />
               </div>
 
               <h2 className="text-2xl font-bold tracking-[0.18em]">
-                AEGIS
+                Nexly
               </h2>
             </div>
 
@@ -98,7 +98,7 @@ const Footer = () => {
         <div className="flex flex-col items-center justify-between gap-3 text-xs text-slate-500 sm:flex-row">
           <p>
             © {new Date().getFullYear()}{" "}
-            <span className="font-medium text-slate-400">AEGIS</span>. All
+            <span className="font-medium text-slate-400">Nexly</span>. All
             rights reserved.
           </p>
 
