@@ -36,3 +36,7 @@ body {
   background: var(--primary);
   color: white;
 }
+
+.scrollbar-none::-webkit-scrollbar {
+  display: none;
+}

@@ -1,5 +1,6 @@
 "use client";
 
+import { useRef, useState, useEffect, useCallback } from "react";
 import { motion } from "framer-motion";
 import {
   Mic,
@@ -9,6 +10,8 @@ import {
   Clock3,
   BrainCircuit,
   ArrowRight,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 import Link from "next/link";
 import { useAuth } from "@/contexts/AuthProvider";
@@ -58,6 +61,153 @@ const features = [
   },
 ];
 
+const steps = [
+  "Choose your interview role and difficulty.",
+  "Complete a realistic AI-powered interview.",
+  "Receive detailed feedback and improve.",
+];
+
+const FeatureCarousel = () => {
+  const trackRef = useRef<HTMLDivElement>(null);
+  const [activeIndex, setActiveIndex] = useState(0);
+
+  const scrollToIndex = useCallback((index: number) => {
+    const track = trackRef.current;
+    if (!track) return;
+    const card = track.children[index] as HTMLElement | undefined;
+    if (!card) return;
+    track.scrollTo({ left: card.offsetLeft - track.offsetLeft, behavior: "smooth" });
+  }, []);
+
+  const handlePrev = () => scrollToIndex(Math.max(activeIndex - 1, 0));
+  const handleNext = () => scrollToIndex(Math.min(activeIndex + 1, features.length - 1));
+
+  useEffect(() => {
+    const track = trackRef.current;
+    if (!track) return;
+
+    let frame: number;
+    const onScroll = () => {
+      cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(() => {
+        const cards = Array.from(track.children) as HTMLElement[];
+        const trackCenter = track.scrollLeft + track.offsetWidth / 2;
+        let closest = 0;
+        let closestDist = Infinity;
+        cards.forEach((card, i) => {
+          const cardCenter = card.offsetLeft + card.offsetWidth / 2;
+          const dist = Math.abs(cardCenter - trackCenter);
+          if (dist < closestDist) {
+            closestDist = dist;
+            closest = i;
+          }
+        });
+        setActiveIndex(closest);
+      });
+    };
+
+    track.addEventListener("scroll", onScroll, { passive: true });
+    return () => {
+      track.removeEventListener("scroll", onScroll);
+      cancelAnimationFrame(frame);
+    };
+  }, []);
+
+  return (
+    <div className="relative">
+      <div
+        ref={trackRef}
+        className="scrollbar-none flex gap-6 overflow-x-auto scroll-smooth px-6 pb-4 [scroll-snap-type:x_mandatory] sm:px-[calc((100%-380px)/2)] xl:px-[calc((100%-1160px)/2)]"
+        style={{ scrollbarWidth: "none" }}
+      >
+        {features.map((feature, index) => {
+          const Icon = feature.icon;
+          return (
+            <motion.div
+              key={feature.title}
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              transition={{ delay: index * 0.06, duration: 0.5 }}
+              viewport={{ once: true, amount: 0.4 }}
+              className="w-[300px] flex-none rounded-3xl border border-slate-800 bg-slate-900/60 p-8 backdrop-blur-xl sm:w-[380px]"
+              style={{ scrollSnapAlign: "center" }}
+            >
+              <div
+                className={`mb-8 flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br ${feature.color}`}
+              >
+                <Icon size={30} />
+              </div>
+
+              <h2 className="text-2xl font-bold">{feature.title}</h2>
+
+              <p className="mt-5 leading-8 text-slate-400">
+                {feature.description}
+              </p>
+            </motion.div>
+          );
+        })}
+      </div>
+
+      {/* Controls */}
+      <div className="mt-8 flex items-center justify-center gap-6">
+        <button
+          type="button"
+          onClick={handlePrev}
+          disabled={activeIndex === 0}
+          aria-label="Previous feature"
+          className="flex h-10 w-10 items-center justify-center rounded-full border border-slate-800 text-slate-400 transition-colors hover:border-blue-500/40 hover:text-white disabled:opacity-30 disabled:hover:border-slate-800 disabled:hover:text-slate-400"
+        >
+          <ChevronLeft size={18} />
+        </button>
+
+        <div className="flex items-center gap-2">
+          {features.map((feature, i) => (
+            <button
+              key={feature.title}
+              type="button"
+              onClick={() => scrollToIndex(i)}
+              aria-label={`Go to ${feature.title}`}
+              className="p-1.5"
+            >
+              <span
+                className={`block h-1.5 rounded-full transition-all duration-300 ${
+                  i === activeIndex ? "w-6 bg-blue-400" : "w-1.5 bg-slate-700"
+                }`}
+              />
+            </button>
+          ))}
+        </div>
+
+        <button
+          type="button"
+          onClick={handleNext}
+          disabled={activeIndex === features.length - 1}
+          aria-label="Next feature"
+          className="flex h-10 w-10 items-center justify-center rounded-full border border-slate-800 text-slate-400 transition-colors hover:border-blue-500/40 hover:text-white disabled:opacity-30 disabled:hover:border-slate-800 disabled:hover:text-slate-400"
+        >
+          <ChevronRight size={18} />
+        </button>
+      </div>
+    </div>
+  );
+};
+
+const stepContainerVariants = {
+  hidden: {},
+  visible: {
+    transition: { staggerChildren: 0.18 },
+  },
+};
+
+const stepItemVariants = {
+  hidden: { opacity: 0, y: 28 },
+  visible: {
+    opacity: 1,
+    y: 0,
+    transition: { duration: 0.6, ease: [0.16, 1, 0.3, 1] as const },
+  },
+};
+
 export default function FeaturesPage() {
   const { user } = useAuth();
   const ctaHref = user ? "/interview" : "/sign-up";
@@ -90,53 +240,28 @@ export default function FeaturesPage() {
         </motion.p>
       </section>
 
-      {/* Features */}
-      <section className="mx-auto mt-28 grid max-w-7xl gap-8 px-6 md:grid-cols-2 xl:grid-cols-3">
-        {features.map((feature, index) => {
-          const Icon = feature.icon;
-
-          return (
-            <motion.div
-              key={feature.title}
-              initial={{ opacity: 0, y: 35 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              transition={{
-                delay: index * 0.08,
-              }}
-              viewport={{ once: true }}
-              whileHover={{
-                y: -8,
-              }}
-              className="group rounded-3xl border border-slate-800 bg-slate-900/60 p-8 backdrop-blur-xl transition-all duration-300 hover:border-blue-500/40"
-            >
-              <div
-                className={`mb-8 flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br ${feature.color}`}
-              >
-                <Icon size={30} />
-              </div>
-
-              <h2 className="text-2xl font-bold">{feature.title}</h2>
-
-              <p className="mt-5 leading-8 text-slate-400">
-                {feature.description}
-              </p>
-            </motion.div>
-          );
-        })}
+      {/* Features carousel */}
+      <section className="mt-28">
+        <FeatureCarousel />
       </section>
 
       {/* How It Works */}
-      <section className="mx-auto mt-36 max-w-6xl px-6 text-center">
-        <h2 className="text-4xl font-bold">How Nexly Works In Three Simple Steps</h2>
+      <motion.section
+        initial="hidden"
+        whileInView="visible"
+        viewport={{ once: true, amount: 0.3 }}
+        variants={stepContainerVariants}
+        className="mx-auto mt-36 max-w-6xl px-6 text-center"
+      >
+        <motion.h2 variants={stepItemVariants} className="text-4xl font-bold">
+          How Nexly Works In Three Simple Steps
+        </motion.h2>
 
         <div className="mt-16 grid gap-10 md:grid-cols-3">
-          {[
-            "Choose your interview role and difficulty.",
-            "Complete a realistic AI-powered interview.",
-            "Receive detailed feedback and improve.",
-          ].map((step, i) => (
-            <div
-              key={i}
+          {steps.map((step, i) => (
+            <motion.div
+              key={step}
+              variants={stepItemVariants}
               className="rounded-3xl border border-slate-800 bg-slate-900/60 p-8"
             >
               <div className="mx-auto mb-6 flex h-14 w-14 items-center justify-center rounded-full bg-blue-600 text-xl font-bold">
@@ -144,10 +269,10 @@ export default function FeaturesPage() {
               </div>
 
               <p className="leading-8 text-slate-400">{step}</p>
-            </div>
+            </motion.div>
           ))}
         </div>
-      </section>
+      </motion.section>
 
       {/* CTA */}
       <section className="mx-auto my-20 max-w-5xl px-5 text-center sm:my-28 lg:my-36">
