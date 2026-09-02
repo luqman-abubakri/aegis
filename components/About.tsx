@@ -70,51 +70,100 @@ const steps = [
 const FeatureCarousel = () => {
   const trackRef = useRef<HTMLDivElement>(null);
   const [activeIndex, setActiveIndex] = useState(0);
+  const [isInteracting, setIsInteracting] = useState(false);
 
   const scrollToIndex = useCallback((index: number) => {
     const track = trackRef.current;
     if (!track) return;
-    const card = track.children[index] as HTMLElement | undefined;
+
+    const cards = Array.from(track.children) as HTMLElement[];
+    const card = cards[index];
+
     if (!card) return;
-    track.scrollTo({ left: card.offsetLeft - track.offsetLeft, behavior: "smooth" });
+
+    track.scrollTo({
+      left: card.offsetLeft - track.offsetLeft,
+      behavior: "smooth",
+    });
+
+    setActiveIndex(index);
   }, []);
 
-  const handlePrev = () => scrollToIndex(Math.max(activeIndex - 1, 0));
-  const handleNext = () => scrollToIndex(Math.min(activeIndex + 1, features.length - 1));
+  const handlePrev = useCallback(() => {
+    const previousIndex =
+      activeIndex === 0 ? features.length - 1 : activeIndex - 1;
 
+    scrollToIndex(previousIndex);
+  }, [activeIndex, scrollToIndex]);
+
+  const handleNext = useCallback(() => {
+    const nextIndex =
+      activeIndex === features.length - 1 ? 0 : activeIndex + 1;
+
+    scrollToIndex(nextIndex);
+  }, [activeIndex, scrollToIndex]);
+
+  // Track which card is currently centered
   useEffect(() => {
     const track = trackRef.current;
     if (!track) return;
 
     let frame: number;
+
     const onScroll = () => {
       cancelAnimationFrame(frame);
+
       frame = requestAnimationFrame(() => {
         const cards = Array.from(track.children) as HTMLElement[];
+
+        if (!cards.length) return;
+
         const trackCenter = track.scrollLeft + track.offsetWidth / 2;
+
         let closest = 0;
         let closestDist = Infinity;
+
         cards.forEach((card, i) => {
           const cardCenter = card.offsetLeft + card.offsetWidth / 2;
           const dist = Math.abs(cardCenter - trackCenter);
+
           if (dist < closestDist) {
             closestDist = dist;
             closest = i;
           }
         });
+
         setActiveIndex(closest);
       });
     };
 
     track.addEventListener("scroll", onScroll, { passive: true });
+
     return () => {
       track.removeEventListener("scroll", onScroll);
       cancelAnimationFrame(frame);
     };
   }, []);
 
+  // Auto-scroll every 5 seconds
+  useEffect(() => {
+    if (isInteracting) return;
+
+    const interval = setInterval(() => {
+      handleNext();
+    }, 5000);
+
+    return () => clearInterval(interval);
+  }, [handleNext, isInteracting]);
+
   return (
-    <div className="relative">
+    <div
+      className="relative"
+      onMouseEnter={() => setIsInteracting(true)}
+      onMouseLeave={() => setIsInteracting(false)}
+      onTouchStart={() => setIsInteracting(true)}
+      onTouchEnd={() => setIsInteracting(false)}
+    >
       <div
         ref={trackRef}
         className="scrollbar-none flex gap-6 overflow-x-auto scroll-smooth px-6 pb-4 [scroll-snap-type:x_mandatory] sm:px-[calc((100%-380px)/2)] xl:px-[calc((100%-1160px)/2)]"
@@ -122,6 +171,7 @@ const FeatureCarousel = () => {
       >
         {features.map((feature, index) => {
           const Icon = feature.icon;
+
           return (
             <motion.div
               key={feature.title}
@@ -153,9 +203,8 @@ const FeatureCarousel = () => {
         <button
           type="button"
           onClick={handlePrev}
-          disabled={activeIndex === 0}
           aria-label="Previous feature"
-          className="flex h-10 w-10 items-center justify-center rounded-full border border-slate-800 text-slate-400 transition-colors hover:border-blue-500/40 hover:text-white disabled:opacity-30 disabled:hover:border-slate-800 disabled:hover:text-slate-400"
+          className="flex h-10 w-10 items-center justify-center rounded-full border border-slate-800 text-slate-400 transition-colors hover:border-blue-500/40 hover:text-white"
         >
           <ChevronLeft size={18} />
         </button>
@@ -171,7 +220,9 @@ const FeatureCarousel = () => {
             >
               <span
                 className={`block h-1.5 rounded-full transition-all duration-300 ${
-                  i === activeIndex ? "w-6 bg-blue-400" : "w-1.5 bg-slate-700"
+                  i === activeIndex
+                    ? "w-6 bg-blue-400"
+                    : "w-1.5 bg-slate-700"
                 }`}
               />
             </button>
@@ -181,9 +232,8 @@ const FeatureCarousel = () => {
         <button
           type="button"
           onClick={handleNext}
-          disabled={activeIndex === features.length - 1}
           aria-label="Next feature"
-          className="flex h-10 w-10 items-center justify-center rounded-full border border-slate-800 text-slate-400 transition-colors hover:border-blue-500/40 hover:text-white disabled:opacity-30 disabled:hover:border-slate-800 disabled:hover:text-slate-400"
+          className="flex h-10 w-10 items-center justify-center rounded-full border border-slate-800 text-slate-400 transition-colors hover:border-blue-500/40 hover:text-white"
         >
           <ChevronRight size={18} />
         </button>
@@ -204,7 +254,10 @@ const stepItemVariants = {
   visible: {
     opacity: 1,
     y: 0,
-    transition: { duration: 0.6, ease: [0.16, 1, 0.3, 1] as const },
+    transition: {
+      duration: 0.6,
+      ease: [0.16, 1, 0.3, 1] as const,
+    },
   },
 };
 
