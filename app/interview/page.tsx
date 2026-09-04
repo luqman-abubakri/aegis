@@ -4,10 +4,12 @@ import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { InterviewSetup } from "@/components/interview/InterviewSetup";
+import { useAuth } from "@/contexts/AuthProvider";
 import type { InterviewConfig } from "@/types";
 
 export default function InterviewPage() {
   const router = useRouter();
+  const { user, loading: authLoading } = useAuth();
   const [initialRole, setInitialRole] = useState<string>("");
   const [loading, setLoading] = useState(true);
 
@@ -44,8 +46,10 @@ export default function InterviewPage() {
       }
     }
 
-    fetchLatestResumeTitle();
-  }, []);
+    if (user && !authLoading) {
+      void fetchLatestResumeTitle();
+    }
+  }, [user, authLoading]);
 
   const handleStart = useCallback(
     (config: InterviewConfig) => {

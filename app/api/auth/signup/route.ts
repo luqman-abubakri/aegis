@@ -1,7 +1,16 @@
 import { NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
+import { SignJWT } from "jose";
 import { dbConnect } from "@/lib/dbConnect";
 import User from "@/lib/models/User";
+
+const JWT_SECRET = process.env.JWT_SECRET;
+
+if (!JWT_SECRET) {
+  throw new Error("Missing environment variable: JWT_SECRET");
+}
+
+const secret = new TextEncoder().encode(JWT_SECRET);
 
 export async function POST(request: Request) {
   try {
@@ -65,7 +74,17 @@ export async function POST(request: Request) {
 
     console.log("User created:", user.email);
 
-    return NextResponse.json(
+    const token = await new SignJWT({
+      userId: user._id.toString(),
+      email: user.email,
+      name: user.fullName,
+    })
+      .setProtectedHeader({ alg: "HS256" })
+      .setIssuedAt()
+      .setExpirationTime("7d")
+      .sign(secret);
+
+    const response = NextResponse.json(
       {
         success: true,
         message: "Account created successfully",
@@ -77,6 +96,18 @@ export async function POST(request: Request) {
       },
       { status: 201 }
     );
+
+    response.cookies.set({
+      name: "aegis_session",
+      value: token,
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
+      path: "/",
+      maxAge: 60 * 60 * 24 * 7,
+    });
+
+    return response;
   } catch (error) {
     console.error("Signup error:", error);
 

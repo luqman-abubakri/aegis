@@ -17,6 +17,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { signUp } from "@/services/auth";
 import { LoadingSpinner } from "@/components/LoadingSpinner";
+import { useAuth } from "@/contexts/AuthProvider";
 
 export default function SignUpPage() {
   const [showPassword, setShowPassword] = useState(false);
@@ -27,6 +28,7 @@ export default function SignUpPage() {
   const [loading, setLoading] = useState(false);
 
   const router = useRouter();
+  const { setAuthenticatedUser } = useAuth();
 
   // Password validation rules
   const passwordRules = {
@@ -74,6 +76,11 @@ export default function SignUpPage() {
         return;
       }
 
+      if (!result.user) {
+        throw new Error("Account was created without a user session.");
+      }
+
+      setAuthenticatedUser(result.user);
       router.push("/dashboard");
     } catch (error) {
       console.error("Signup error:", error);

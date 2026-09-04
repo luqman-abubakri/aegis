@@ -6,6 +6,7 @@ import {
   useEffect,
   useState,
   useCallback,
+  useRef,
   type ReactNode,
 } from "react";
 import { useRouter } from "next/navigation";
@@ -21,6 +22,7 @@ interface AuthContextType {
   user: AuthUser | null;
   loading: boolean;
   error: string | null;
+  setAuthenticatedUser: (user: AuthUser) => void;
   refreshUser: () => Promise<void>;
   logout: () => Promise<void>;
 }
@@ -31,6 +33,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const refreshPromiseRef = useRef<Promise<void> | null>(null);
+  const authVersionRef = useRef(0);
 
   const router = useRouter();
 
@@ -39,35 +43,63 @@ export function AuthProvider({ children }: { children: ReactNode }) {
    * by checking the MongoDB/JWT session.
    */
   const refreshUser = useCallback(async () => {
-    try {
-      setError(null);
-
-      const response = await fetch("/api/auth/me", {
-        method: "GET",
-        credentials: "include",
-      });
-
-      const data = await response.json();
-
-      if (!response.ok || !data.success) {
-        setUser(null);
-        return;
-      }
-
-      setUser(data.user);
-    } catch (err: unknown) {
-      console.error("[Auth] Failed to refresh user:", err);
-
-      setUser(null);
-
-      setError(
-        err instanceof Error
-          ? err.message
-          : "Failed to get authenticated user"
-      );
-    } finally {
-      setLoading(false);
+    if (refreshPromiseRef.current) {
+      return refreshPromiseRef.current;
     }
+
+    const requestVersion = ++authVersionRef.current;
+
+    refreshPromiseRef.current = (async () => {
+      try {
+        setError(null);
+
+        const response = await fetch("/api/auth/me", {
+          method: "GET",
+          credentials: "include",
+        });
+
+        const data = await response.json();
+
+        if (requestVersion !== authVersionRef.current) {
+          return;
+        }
+
+        if (!response.ok || !data.success) {
+          setUser(null);
+          return;
+        }
+
+        setUser(data.user);
+      } catch (err: unknown) {
+        if (requestVersion !== authVersionRef.current) {
+          return;
+        }
+
+        console.error("[Auth] Failed to refresh user:", err);
+
+        setUser(null);
+
+        setError(
+          err instanceof Error
+            ? err.message
+            : "Failed to get authenticated user"
+        );
+      } finally {
+        if (requestVersion === authVersionRef.current) {
+          setLoading(false);
+        }
+        refreshPromiseRef.current = null;
+      }
+    })();
+
+    return refreshPromiseRef.current;
+  }, []);
+
+  const setAuthenticatedUser = useCallback((authenticatedUser: AuthUser) => {
+    authVersionRef.current += 1;
+    setError(null);
+    setUser(authenticatedUser);
+    setLoading(false);
   }, []);
 
   /**
@@ -117,6 +149,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         user,
         loading,
         error,
+        setAuthenticatedUser,
         refreshUser,
         logout,
       }}

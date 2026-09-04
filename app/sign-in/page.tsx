@@ -24,7 +24,7 @@ export default function SignInPage() {
   const [loading, setLoading] = useState(false);
 
   const router = useRouter();
-  const { refreshUser } = useAuth();
+  const { setAuthenticatedUser } = useAuth();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -47,8 +47,11 @@ export default function SignInPage() {
         return;
       }
 
-      // Make AuthProvider aware of the new JWT session
-      await refreshUser();
+      if (!result.user) {
+        throw new Error("Signed in without a user session.");
+      }
+
+      setAuthenticatedUser(result.user);
 
       router.push("/dashboard");
     } catch (error) {

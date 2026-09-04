@@ -47,20 +47,12 @@ export async function GET() {
     // Connect to MongoDB
     await dbConnect();
 
-    // Get completed interviews
-    const interviews = await Interview.find({
-      userId,
-      status: "completed",
-    })
-      .sort({ createdAt: -1 })
-      .lean();
-
-    // Get feedback
-    const feedbackRecords = await Feedback.find({
-      userId,
-    })
-      .sort({ createdAt: -1 })
-      .lean();
+    const [interviews, feedbackRecords] = await Promise.all([
+      Interview.find({ userId, status: "completed" })
+        .sort({ createdAt: -1 })
+        .lean(),
+      Feedback.find({ userId }).sort({ createdAt: -1 }).lean(),
+    ]);
 
     return NextResponse.json({
       success: true,
