@@ -1,8 +1,14 @@
 "use client";
 
 import Link from "next/link";
-import { Menu, X, BrainCircuit, LogOut, User as UserIcon } from "lucide-react";
-import { useState } from "react";
+import {
+  Menu,
+  X,
+  BrainCircuit,
+  LogOut,
+  User as UserIcon,
+} from "lucide-react";
+import { useEffect, useRef, useState } from "react";
 import { useAuth } from "@/contexts/AuthProvider";
 import { useRouter } from "next/navigation";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
@@ -11,8 +17,31 @@ const Navbar = () => {
   const [open, setOpen] = useState(false);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
+
   const { user, loading, logout } = useAuth();
   const router = useRouter();
+
+  // Reference to the entire navbar
+  const navRef = useRef<HTMLElement>(null);
+
+  // Close mobile menu when clicking outside the navbar
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (!open) return;
+
+      const target = event.target as Node;
+
+      if (navRef.current && !navRef.current.contains(target)) {
+        setOpen(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [open]);
 
   const requestLogout = () => {
     setShowLogoutConfirm(true);
@@ -20,6 +49,7 @@ const Navbar = () => {
 
   const confirmLogout = async () => {
     setLoggingOut(true);
+
     try {
       await logout();
       setOpen(false);
@@ -31,7 +61,10 @@ const Navbar = () => {
   };
 
   return (
-    <header className="fixed top-0 z-50 w-full border-b border-slate-800/60 bg-slate-950/70 backdrop-blur-xl">
+    <header
+      ref={navRef}
+      className="fixed top-0 z-50 w-full border-b border-slate-800/60 bg-slate-950/70 backdrop-blur-xl"
+    >
       <nav className="mx-auto flex h-20 max-w-7xl items-center justify-between px-5 sm:px-6 lg:max-w-7xl lg:px-8">
         {/* Logo */}
         <Link href="/" className="flex items-center gap-3">
@@ -43,9 +76,7 @@ const Navbar = () => {
             <h1 className="text-xl font-bold tracking-wide text-white">
               Nexly
             </h1>
-            <p className="text-xs text-slate-400">
-              AI Interview Coach
-            </p>
+            <p className="text-xs text-slate-400">AI Interview Coach</p>
           </div>
         </Link>
 
@@ -105,6 +136,7 @@ const Navbar = () => {
           onClick={() => setOpen(!open)}
           className="rounded-lg p-2 text-white transition hover:bg-slate-800 lg:hidden"
           aria-label="Toggle Menu"
+          aria-expanded={open}
         >
           {open ? <X size={28} /> : <Menu size={28} />}
         </button>
@@ -168,6 +200,7 @@ const Navbar = () => {
           </div>
         </div>
       )}
+
       <ConfirmDialog
         open={showLogoutConfirm}
         title="Sign Out"
