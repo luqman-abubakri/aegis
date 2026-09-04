@@ -478,10 +478,14 @@ export default function ResumePage() {
    * View PDF
    */
   const handleViewPdf = async (resume: ResumeRecord) => {
-    if (!resume.fileUrl) return;
+    if (!resume.id) return;
 
     try {
-      window.open(resume.fileUrl, "_blank", "noopener,noreferrer");
+      window.open(
+        `/api/resume/${encodeURIComponent(resume.id)}/view`,
+        "_blank",
+        "noopener,noreferrer"
+      );
     } catch (error) {
       console.error("Failed to open PDF", error);
       setError("Failed to open PDF file.");

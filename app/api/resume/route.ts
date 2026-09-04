@@ -163,7 +163,7 @@ export async function POST(request: Request) {
             public_id: `${Date.now()}-${file.name.replace(
               /\.pdf$/i,
               ""
-            )}`,
+            )}.pdf`,
           },
           (error, result) => {
             if (error) {
