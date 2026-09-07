@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/contexts/AuthProvider";
 import { LoadingSpinner } from "@/components/LoadingSpinner";
@@ -12,28 +12,23 @@ interface ProtectedRouteProps {
 export function ProtectedRoute({ children }: ProtectedRouteProps) {
   const router = useRouter();
   const { user, loading } = useAuth();
-  const [authorized, setAuthorized] = useState(false);
 
   useEffect(() => {
-    if (loading) {
-      return;
-    }
-
-    if (!user) {
-      setAuthorized(false);
+    if (!loading && !user) {
       router.replace("/sign-in");
-      return;
     }
-
-    setAuthorized(true);
   }, [user, loading, router]);
 
-  if (loading || !authorized) {
+  if (loading) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-[#020817]">
         <LoadingSpinner size="lg" />
       </div>
     );
+  }
+
+  if (!user) {
+    return null;
   }
 
   return <>{children}</>;

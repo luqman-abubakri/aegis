@@ -65,7 +65,6 @@ export default function ResumePage() {
   const { user, loading: authLoading } = useAuth();
 
   const [resumes, setResumes] = useState<ResumeRecord[]>([]);
-  const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [dragActive, setDragActive] = useState(false);
@@ -110,7 +109,6 @@ export default function ResumePage() {
   useEffect(() => {
     async function loadResumes() {
       if (!user) {
-        setLoading(false);
         return;
       }
 
@@ -118,15 +116,11 @@ export default function ResumePage() {
         setResumes(await fetchResumes());
       } catch (err) {
         console.error("[Resume] Failed to load resumes:", err);
-      } finally {
-        setLoading(false);
       }
     }
 
     if (user) {
       void loadResumes();
-    } else if (!authLoading) {
-      setLoading(false);
     }
   }, [user, authLoading]);
 
@@ -495,7 +489,7 @@ export default function ResumePage() {
   /*
    * Loading state
    */
-  if (authLoading || loading) {
+  if (authLoading) {
     return (
       <ProtectedRoute>
         <div className="flex min-h-screen items-center justify-center bg-[#020817]">

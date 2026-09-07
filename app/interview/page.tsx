@@ -11,8 +11,6 @@ export default function InterviewPage() {
   const router = useRouter();
   const { user, loading: authLoading } = useAuth();
   const [initialRole, setInitialRole] = useState<string>("");
-  const [loading, setLoading] = useState(true);
-
   useEffect(() => {
     async function fetchLatestResumeTitle() {
       try {
@@ -41,8 +39,6 @@ export default function InterviewPage() {
           "Failed to fetch initial role from resume:",
           error
         );
-      } finally {
-        setLoading(false);
       }
     }
 
@@ -69,12 +65,10 @@ export default function InterviewPage() {
   return (
     <ProtectedRoute>
       <main className="min-h-screen bg-[#020817] pb-20 pt-28 text-white">
-        {!loading && (
-          <InterviewSetup
-            onStart={handleStart}
-            initialRole={initialRole}
-          />
-        )}
+        <InterviewSetup
+          onStart={handleStart}
+          initialRole={initialRole}
+        />
       </main>
     </ProtectedRoute>
   );

@@ -119,8 +119,6 @@ export default function DashboardPage() {
     DashboardFeedback[]
   >([]);
 
-  const [loading, setLoading] = useState(true);
-
   // Delete dialog state
   const [deleteDialogOpen, setDeleteDialogOpen] =
     useState(false);
@@ -141,8 +139,6 @@ export default function DashboardPage() {
         "[Dashboard] Loading MongoDB data for user:",
         user.id
       );
-
-      setLoading(true);
 
       try {
         const response = await fetch("/api/dashboard", {
@@ -176,8 +172,6 @@ export default function DashboardPage() {
 
         setInterviews([]);
         setFeedbackRecords([]);
-      } finally {
-        setLoading(false);
       }
     }
 
@@ -281,7 +275,7 @@ export default function DashboardPage() {
     }
   };
 
-  if (authLoading || loading) {
+  if (authLoading) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-[#020817]">
         <LoadingSpinner

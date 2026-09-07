@@ -76,8 +76,6 @@ export default function ProfilePage() {
   const [feedbackRecords, setFeedbackRecords] =
     useState<FeedbackRecord[]>([]);
 
-  const [loading, setLoading] = useState(true);
-
   // Edit profile state
   const [isEditing, setIsEditing] = useState(false);
   const [fullName, setFullName] = useState("");
@@ -112,8 +110,6 @@ export default function ProfilePage() {
   useEffect(() => {
     async function fetchProfileData() {
       if (!user) return;
-
-      setLoading(true);
 
       console.log(
         "[Profile] Fetching MongoDB profile data..."
@@ -170,8 +166,6 @@ export default function ProfilePage() {
             ? error.message
             : "Failed to load profile."
         );
-      } finally {
-        setLoading(false);
       }
     }
 
@@ -604,15 +598,7 @@ export default function ProfilePage() {
     }
   };
 
-  /**
-   * ==========================================
-   * LOADING
-   * ==========================================
-   */
-  if (
-    authLoading ||
-    loading
-  ) {
+  if (authLoading) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-[#020817]">
         <LoadingSpinner
