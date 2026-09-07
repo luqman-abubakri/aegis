@@ -18,7 +18,6 @@ import {
   FileCheck2,
   PlayCircle,
   BrainCircuit,
-  Eye,
   ChevronDown,
   ChevronUp,
 } from "lucide-react";
@@ -484,24 +483,6 @@ export default function ResumePage() {
   );
 
   /*
-   * View PDF
-   */
-  const handleViewPdf = async (resume: ResumeRecord) => {
-    if (!resume.id) return;
-
-    try {
-      window.open(
-        `/api/resume/${encodeURIComponent(resume.id)}/view`,
-        "_blank",
-        "noopener,noreferrer"
-      );
-    } catch (error) {
-      console.error("Failed to open PDF", error);
-      setError("Failed to open PDF file.");
-    }
-  };
-
-  /*
    * Loading state
    */
   if (authLoading) {
@@ -903,22 +884,6 @@ export default function ResumePage() {
                               )}
                             </button>
                           )}
-
-                          <button
-                            type="button"
-                            onClick={() =>
-                              void handleViewPdf(resume)
-                            }
-                            disabled={
-                              analyzing ||
-                              deleting ||
-                              uploading
-                            }
-                            className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-blue-500/30 bg-blue-500/10 px-4 py-2 text-sm font-semibold text-blue-400 transition-all duration-300 hover:bg-blue-500/20 disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"
-                          >
-                            <Eye size={16} />
-                            View PDF
-                          </button>
 
                           <button
                             type="button"
