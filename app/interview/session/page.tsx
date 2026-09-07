@@ -11,7 +11,7 @@ import { InterviewChat } from "@/components/interview/InterviewChat";
 import { VoiceControls } from "@/components/interview/VoiceControls";
 import { FeedbackCard } from "@/components/interview/FeedbackCard";
 import { Bot, ArrowLeft, Loader2, CheckCircle, AlertTriangle, Clock3, ChevronRight } from "lucide-react";
-import type { InterviewConfig } from "@/types";
+import type { Difficulty, InterviewConfig } from "@/types";
 
 const RESUME_INTERVIEW_STORAGE_KEY = "aegis_resume_interview";
 
@@ -98,6 +98,7 @@ function SessionContent() {
   const processingTranscriptRef = useRef(false);
   const autoAdvanceTimerRef = useRef<number | null>(null);
   const lastProcessedQuestionIdRef = useRef<string | null>(null);
+  const startupStartedRef = useRef(false);
 
 const handleTranscriptUpdate = useCallback(
     (transcript: string) => {
@@ -186,9 +187,12 @@ const handleTranscriptUpdate = useCallback(
   }, [vapi.speak]);
 
   const roleParam = searchParams.get("role") || "";
+  const difficultyParam = searchParams.get("difficulty") || "";
+  const interviewTypeParam = searchParams.get("interviewType") || "";
   const modeParam = searchParams.get("mode") || "";
   const durationParam = searchParams.get("duration") || "";
   const resumeInterviewParam = searchParams.get("resumeInterview") === "1" || searchParams.get("resumeInterview") === "true";
+  const hasUrlConfig = !!(roleParam && difficultyParam && interviewTypeParam);
   const voiceMode = modeParam === "voice";
 
   const handleFinishInterview = useCallback(async (): Promise<boolean> => {
@@ -310,6 +314,34 @@ await interview.startInterview(
     return () => window.clearTimeout(timeout);
   }, [resumeInterviewParam]);
 
+  useEffect(() => {
+    if (!hasUrlConfig) {
+      return;
+    }
+    if (startupStartedRef.current || interview.state.status !== "idle") {
+      return;
+    }
+
+    startupStartedRef.current = true;
+    void handleStartInterview({
+      role: roleParam,
+      interviewType: interviewTypeParam as InterviewConfig["interviewType"],
+      difficulty: difficultyParam as Difficulty,
+      mode: modeParam === "voice" ? "voice" : "text",
+      durationMinutes: Number(durationParam) || 20,
+      totalQuestions: MAX_QUESTIONS,
+    });
+  }, [
+    difficultyParam,
+    durationParam,
+    handleStartInterview,
+    hasUrlConfig,
+    interview.state.status,
+    interviewTypeParam,
+    modeParam,
+    roleParam,
+  ]);
+
   // Timestamp-based countdown with drift resistance and visibility recalculation.
   useEffect(() => {
     if (
@@ -354,7 +386,8 @@ await interview.startInterview(
   useEffect(() => {
     if (
       interview.state.status === "in-progress" &&
-      timeRemaining <= 0 &&
+      endTimestampRef.current !== null &&
+      Date.now() >= endTimestampRef.current &&
       !autoFinishTriggeredRef.current
     ) {
       autoFinishTriggeredRef.current = true;
