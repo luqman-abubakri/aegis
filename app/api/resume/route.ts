@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { jwtVerify } from "jose";
+import type { UploadApiResponse } from "cloudinary";
 import { dbConnect } from "@/lib/dbConnect";
 import ResumeUpload from "@/lib/models/ResumeUpload";
 import cloudinary from "@/lib/cloudinary";
@@ -19,6 +20,17 @@ if (!JWT_SECRET) {
 }
 
 const secret = new TextEncoder().encode(JWT_SECRET);
+
+class ResumeProcessingError extends Error {
+  constructor(
+    message: string,
+    public readonly code: string,
+    public readonly status: number
+  ) {
+    super(message);
+    this.name = "ResumeProcessingError";
+  }
+}
 
 /**
  * Get the authenticated user's ID from the aegis_session cookie.
@@ -51,20 +63,42 @@ async function getAuthenticatedUserId() {
  * Extract text from a PDF buffer.
  */
 async function extractPdfText(buffer: Buffer) {
-  // Basic PDF validation
-  const header = buffer.subarray(0, 5).toString();
+  // This is only a signature check, not complete PDF validation.
+  const header = buffer.subarray(0, 5).toString("ascii");
 
   if (header !== "%PDF-") {
-    throw new Error("The uploaded file is not a valid PDF.");
+    throw new ResumeProcessingError(
+      "The uploaded file does not have a valid PDF signature.",
+      "INVALID_PDF_SIGNATURE",
+      400
+    );
   }
 
-  const data = await pdfParse(buffer);
+  let data;
+
+  try {
+    // Pass an independent Uint8Array to the legacy PDF.js parser.
+    data = await pdfParse(Uint8Array.from(buffer));
+  } catch (error) {
+    console.error("[Resume API] PDF text extraction failed:", {
+      error: error instanceof Error ? error.message : String(error),
+      fileSize: buffer.length,
+    });
+
+    throw new ResumeProcessingError(
+      "The PDF was received, but its text could not be extracted. It may use a PDF structure or encoding that this parser cannot read, or it may be a scanned image. Please upload a text-based PDF.",
+      "PDF_TEXT_EXTRACTION_FAILED",
+      422
+    );
+  }
 
   const text = data.text?.trim();
 
   if (!text || text.length < 50) {
-    throw new Error(
-      "Could not extract enough text from this PDF. Please make sure your resume contains readable text."
+    throw new ResumeProcessingError(
+      "The PDF was read successfully, but it contains too little selectable text. Scanned or image-only resumes are not supported.",
+      "PDF_TEXT_NOT_FOUND",
+      422
     );
   }
 
@@ -155,47 +189,86 @@ export async function POST(request: Request) {
        * resource_type: "raw" is important because the resume
        * is a PDF/document rather than an image.
        */
-      const uploadResult = await new Promise<any>((resolve, reject) => {
-        const uploadStream = cloudinary.uploader.upload_stream(
-          {
-            folder: "aegis/resumes",
-            resource_type: "raw",
-            public_id: `${Date.now()}-${file.name.replace(
-              /\.pdf$/i,
-              ""
-            )}.pdf`,
-          },
-          (error, result) => {
-            if (error) {
-              reject(error);
-              return;
+      let uploadResult: UploadApiResponse;
+
+      try {
+        uploadResult = await new Promise<UploadApiResponse>((resolve, reject) => {
+          const uploadStream = cloudinary.uploader.upload_stream(
+            {
+              folder: "aegis/resumes",
+              resource_type: "raw",
+              public_id: `${Date.now()}-${file.name.replace(
+                /\.pdf$/i,
+                ""
+              )}.pdf`,
+            },
+            (error, result) => {
+              if (error) {
+                reject(error);
+                return;
+              }
+
+              if (!result) {
+                reject(new Error("Cloudinary returned no upload result."));
+                return;
+              }
+
+              resolve(result);
             }
+          );
 
-            resolve(result);
-          }
+          uploadStream.end(buffer);
+        });
+      } catch (error) {
+        console.error("[Resume API] Cloudinary resume upload failed:", error);
+        throw new ResumeProcessingError(
+          "The PDF was parsed, but it could not be stored in Cloudinary. Please try again.",
+          "CLOUDINARY_UPLOAD_FAILED",
+          502
         );
-
-        uploadStream.end(buffer);
-      });
+      }
 
       /*
        * Save resume metadata in MongoDB.
        */
-      const resume = await ResumeUpload.create({
-        userId,
-        fileName: file.name,
-        fileUrl: uploadResult.secure_url,
-        publicId: uploadResult.public_id,
-        fileSize: file.size,
-        mimeType: file.type,
-        extractedText,
-        parsedData: {
-          extractedText,
+      let resume;
+
+      try {
+        resume = await ResumeUpload.create({
+          userId,
           fileName: file.name,
-        },
-        analysis: null,
-        uploadedAt: new Date(),
-      });
+          fileUrl: uploadResult.secure_url,
+          publicId: uploadResult.public_id,
+          fileSize: file.size,
+          mimeType: file.type,
+          extractedText,
+          parsedData: {
+            extractedText,
+            fileName: file.name,
+          },
+          analysis: null,
+          uploadedAt: new Date(),
+        });
+      } catch (error) {
+        console.error("[Resume API] MongoDB resume save failed:", error);
+
+        try {
+          await cloudinary.uploader.destroy(uploadResult.public_id, {
+            resource_type: "raw",
+          });
+        } catch (cleanupError) {
+          console.error(
+            "[Resume API] Cloudinary cleanup after MongoDB failure failed:",
+            cleanupError
+          );
+        }
+
+        throw new ResumeProcessingError(
+          "The PDF was uploaded, but its resume record could not be saved. Please try again.",
+          "MONGODB_SAVE_FAILED",
+          500
+        );
+      }
 
       return NextResponse.json({
         success: true,
@@ -286,18 +359,37 @@ export async function POST(request: Request) {
       /*
        * Send resume text to Groq.
        */
-      const analysis = await analyzeResumeText({
-        resumeText,
-        fileName: resume.fileName,
-      });
+      let analysis;
+      let interviewQuestions;
 
-      /*
-       * Generate interview questions based on the resume.
-       */
-      const interviewQuestions = await generateResumeInterviewQuestions({
-        analysis,
-        resumeText,
-      });
+      try {
+        analysis = await analyzeResumeText({
+          resumeText,
+          fileName: resume.fileName,
+        });
+
+        interviewQuestions = await generateResumeInterviewQuestions({
+          analysis,
+          resumeText,
+        });
+      } catch (error: unknown) {
+        console.error("[Resume API] Groq resume analysis failed:", error);
+
+        const groqError = error as { status?: number; code?: string };
+
+        if (
+          groqError.status === 429 ||
+          groqError.code === "rate_limit_exceeded"
+        ) {
+          throw error;
+        }
+
+        throw new ResumeProcessingError(
+          "The resume was saved, but AI analysis failed. You can try analyzing it again.",
+          "GROQ_ANALYSIS_FAILED",
+          502
+        );
+      }
 
       /*
        * Save everything to MongoDB.
@@ -409,15 +501,32 @@ export async function POST(request: Request) {
       },
       { status: 400 }
     );
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("[Resume API] Error:", error);
+
+    const apiError = error as {
+      status?: number;
+      code?: string;
+      message?: string;
+    };
+
+    if (error instanceof ResumeProcessingError) {
+      return NextResponse.json(
+        {
+          success: false,
+          code: error.code,
+          message: error.message,
+        },
+        { status: error.status }
+      );
+    }
 
     /*
      * Groq/API quota errors.
      */
     if (
-      error?.status === 429 ||
-      error?.code === "rate_limit_exceeded"
+      apiError.status === 429 ||
+      apiError.code === "rate_limit_exceeded"
     ) {
       return NextResponse.json(
         {
@@ -433,7 +542,7 @@ export async function POST(request: Request) {
       {
         success: false,
         message:
-          error?.message ||
+          apiError.message ||
           "Something went wrong while processing your resume.",
       },
       { status: 500 }
@@ -470,7 +579,7 @@ export async function GET() {
 
     return NextResponse.json({
       success: true,
-      resumes: resumes.map((resume: any) => ({
+      resumes: resumes.map((resume) => ({
         id: resume._id.toString(),
         fileName: resume.fileName,
         fileUrl: resume.fileUrl,
@@ -482,7 +591,7 @@ export async function GET() {
         parsedData: resume.parsedData || null,
       })),
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("[Resume API] GET error:", error);
 
     return NextResponse.json(
