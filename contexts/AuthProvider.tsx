@@ -10,6 +10,7 @@ import {
   type ReactNode,
 } from "react";
 import { useRouter } from "next/navigation";
+import { clearClientCache } from "@/lib/clientCache";
 
 export interface AuthUser {
   id: string;
@@ -123,6 +124,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
 
       setUser(null);
+      clearClientCache();
 
       router.push("/");
     } catch (err: unknown) {

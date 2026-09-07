@@ -8,6 +8,7 @@ import {
 } from "react";
 
 import { buildIncompleteFeedback } from "@/lib/incompleteFeedback";
+import { invalidateCachedPrefix } from "@/lib/clientCache";
 
 import type {
   AnswerEvaluation,
@@ -1178,6 +1179,9 @@ export function useInterview() {
                 "Failed to save interview. Please try again.",
             };
           }
+
+          invalidateCachedPrefix("dashboard:");
+          invalidateCachedPrefix("profile:");
 
           return {
             success: true,

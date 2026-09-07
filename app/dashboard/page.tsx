@@ -18,6 +18,7 @@ import {
   Trash2,
 } from "lucide-react";
 import Link from "next/link";
+import { fetchCached, getCached, setCached } from "@/lib/clientCache";
 
 interface DashboardInterview {
   _id: string;
@@ -44,6 +45,11 @@ interface DashboardFeedback {
   improvements: string[];
   summary: string | null;
   createdAt: string;
+}
+
+interface DashboardData {
+  interviews: DashboardInterview[];
+  feedbackRecords: DashboardFeedback[];
 }
 
 /**
@@ -110,14 +116,18 @@ function calculateStreak(dates: string[]): number {
 
 export default function DashboardPage() {
   const { user, loading: authLoading } = useAuth();
+  const dashboardCacheKey = user ? `dashboard:${user.id}` : "";
 
   const [interviews, setInterviews] = useState<
     DashboardInterview[]
-  >([]);
+  >(() => getCached<DashboardData>(dashboardCacheKey)?.interviews ?? []);
 
   const [feedbackRecords, setFeedbackRecords] = useState<
     DashboardFeedback[]
-  >([]);
+  >(
+    () =>
+      getCached<DashboardData>(dashboardCacheKey)?.feedbackRecords ?? []
+  );
 
   // Delete dialog state
   const [deleteDialogOpen, setDeleteDialogOpen] =
@@ -141,29 +151,36 @@ export default function DashboardPage() {
       );
 
       try {
-        const response = await fetch("/api/dashboard", {
-          method: "GET",
-          credentials: "include",
-        });
+        const data = await fetchCached<DashboardData>(
+          dashboardCacheKey,
+          async () => {
+            const response = await fetch("/api/dashboard", {
+              method: "GET",
+              credentials: "include",
+            });
 
-        const data = await response.json();
+            const payload = await response.json();
+
+            if (!response.ok || !payload.success) {
+              throw new Error(
+                payload.message || "Failed to load dashboard data"
+              );
+            }
+
+            return {
+              interviews: payload.interviews || [],
+              feedbackRecords: payload.feedbackRecords || [],
+            };
+          }
+        );
 
         console.log(
           "[Dashboard] API response:",
           data
         );
 
-        if (!response.ok || !data.success) {
-          throw new Error(
-            data.message ||
-              "Failed to load dashboard data"
-          );
-        }
-
-        setInterviews(data.interviews || []);
-        setFeedbackRecords(
-          data.feedbackRecords || []
-        );
+        setInterviews(data.interviews);
+        setFeedbackRecords(data.feedbackRecords);
       } catch (error) {
         console.error(
           "[Dashboard] Failed to load data:",
@@ -178,7 +195,7 @@ export default function DashboardPage() {
     if (user && !authLoading) {
       void loadDashboardData();
     }
-  }, [user, authLoading]);
+  }, [user, authLoading, dashboardCacheKey]);
 
   /**
    * Open delete confirmation dialog.
@@ -251,6 +268,18 @@ export default function DashboardPage() {
             feedback.interviewId !== interviewId
         )
       );
+
+      const cachedData = getCached<DashboardData>(dashboardCacheKey);
+      if (cachedData) {
+        setCached(dashboardCacheKey, {
+          interviews: cachedData.interviews.filter(
+            (interview) => interview._id !== interviewId
+          ),
+          feedbackRecords: cachedData.feedbackRecords.filter(
+            (feedback) => feedback.interviewId !== interviewId
+          ),
+        });
+      }
 
       console.log(
         "[Dashboard] Interview deleted successfully:",

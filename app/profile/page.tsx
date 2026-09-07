@@ -20,6 +20,7 @@ import {
   Upload,
 } from "lucide-react";
 import Link from "next/link";
+import { fetchCached, getCached, setCached } from "@/lib/clientCache";
 
 interface ProfileRecord {
   id: string;
@@ -65,20 +66,24 @@ interface AvatarApiResponse {
 
 export default function ProfilePage() {
   const { user, loading: authLoading } = useAuth();
+  const profileCacheKey = user ? `profile:${user.id}` : "";
+  const cachedProfile = getCached<ProfileApiResponse>(profileCacheKey);
 
   const [profile, setProfile] =
-    useState<ProfileRecord | null>(null);
+    useState<ProfileRecord | null>(cachedProfile?.profile ?? null);
 
   const [interviews, setInterviews] = useState<
     InterviewRecord[]
-  >([]);
+  >(cachedProfile?.interviews ?? []);
 
   const [feedbackRecords, setFeedbackRecords] =
-    useState<FeedbackRecord[]>([]);
+    useState<FeedbackRecord[]>(cachedProfile?.feedbackRecords ?? []);
 
   // Edit profile state
   const [isEditing, setIsEditing] = useState(false);
-  const [fullName, setFullName] = useState("");
+  const [fullName, setFullName] = useState(
+    cachedProfile?.profile?.fullName || ""
+  );
 
   const [selectedFile, setSelectedFile] =
     useState<File | null>(null);
@@ -116,29 +121,31 @@ export default function ProfilePage() {
       );
 
       try {
-        const response = await fetch(
-          "/api/profile",
-          {
-            method: "GET",
-            credentials: "include",
-            cache: "no-store",
+        const data = await fetchCached<ProfileApiResponse>(
+          profileCacheKey,
+          async () => {
+            const response = await fetch("/api/profile", {
+              method: "GET",
+              credentials: "include",
+              cache: "no-store",
+            });
+
+            const payload: ProfileApiResponse = await response.json();
+
+            if (!response.ok || !payload.success) {
+              throw new Error(
+                payload.message || "Failed to load profile."
+              );
+            }
+
+            return payload;
           }
         );
-
-        const data: ProfileApiResponse =
-          await response.json();
 
         console.log(
           "[Profile] API response:",
           data
         );
-
-        if (!response.ok || !data.success) {
-          throw new Error(
-            data.message ||
-              "Failed to load profile."
-          );
-        }
 
         if (data.profile) {
           setProfile(data.profile);
@@ -172,7 +179,7 @@ export default function ProfilePage() {
     if (user && !authLoading) {
       fetchProfileData();
     }
-  }, [user, authLoading]);
+  }, [user, authLoading, profileCacheKey]);
 
   /**
    * ==========================================
@@ -553,6 +560,12 @@ export default function ProfilePage() {
        * from API response.
        */
       if (data.profile) {
+        const cachedData = getCached<ProfileApiResponse>(profileCacheKey);
+        setCached(profileCacheKey, {
+          ...cachedData,
+          success: true,
+          profile: data.profile,
+        });
         setProfile(
           data.profile
         );

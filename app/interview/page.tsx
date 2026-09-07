@@ -6,27 +6,42 @@ import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { InterviewSetup } from "@/components/interview/InterviewSetup";
 import { useAuth } from "@/contexts/AuthProvider";
 import type { InterviewConfig } from "@/types";
+import { fetchCached, getCached } from "@/lib/clientCache";
+
+interface ResumeSummary {
+  analysis?: {
+    professionalTitle?: string;
+    careerDomain?: string;
+  } | null;
+}
 
 export default function InterviewPage() {
   const router = useRouter();
   const { user, loading: authLoading } = useAuth();
   const [initialRole, setInitialRole] = useState<string>("");
+  const resumeCacheKey = user ? `resumes:${user.id}` : "";
   useEffect(() => {
     async function fetchLatestResumeTitle() {
       try {
-        const response = await fetch("/api/resume", {
-          credentials: "include",
-        });
-        const payload = await response.json();
-        const latestResume = payload.resumes?.find(
-          (resume: { analysis?: unknown }) => resume.analysis
+        const resumes = await fetchCached<ResumeSummary[]>(
+          resumeCacheKey,
+          async () => {
+            const response = await fetch("/api/resume", {
+              credentials: "include",
+            });
+            const payload = await response.json();
+
+            if (!response.ok || !payload.success) {
+              throw new Error(payload.message || "Failed to load resumes.");
+            }
+
+            return payload.resumes as ResumeSummary[];
+          }
         );
+        const latestResume = resumes.find((resume) => resume.analysis);
 
         if (latestResume?.analysis) {
-          const analysis = latestResume.analysis as {
-            professionalTitle?: string;
-            careerDomain?: string;
-          };
+          const analysis = latestResume.analysis;
 
           if (analysis.professionalTitle) {
             setInitialRole(analysis.professionalTitle);
@@ -45,7 +60,7 @@ export default function InterviewPage() {
     if (user && !authLoading) {
       void fetchLatestResumeTitle();
     }
-  }, [user, authLoading]);
+  }, [user, authLoading, resumeCacheKey]);
 
   const handleStart = useCallback(
     (config: InterviewConfig) => {

@@ -23,6 +23,12 @@ import {
   ChevronUp,
 } from "lucide-react";
 import Link from "next/link";
+import {
+  fetchCached,
+  getCached,
+  invalidateCached,
+  setCached,
+} from "@/lib/clientCache";
 
 interface ResumeRecord {
   id: string;
@@ -48,23 +54,28 @@ function formatBytes(bytes: number): string {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
-async function fetchResumes(): Promise<ResumeRecord[]> {
-  const response = await fetch("/api/resume", {
-    credentials: "include",
+async function fetchResumes(userId: string): Promise<ResumeRecord[]> {
+  return fetchCached(`resumes:${userId}`, async () => {
+    const response = await fetch("/api/resume", {
+      credentials: "include",
+    });
+    const payload = await response.json();
+
+    if (!response.ok || !payload.success) {
+      throw new Error(payload.message || "Failed to load resumes.");
+    }
+
+    return payload.resumes as ResumeRecord[];
   });
-  const payload = await response.json();
-
-  if (!response.ok || !payload.success) {
-    throw new Error(payload.message || "Failed to load resumes.");
-  }
-
-  return payload.resumes as ResumeRecord[];
 }
 
 export default function ResumePage() {
   const { user, loading: authLoading } = useAuth();
 
-  const [resumes, setResumes] = useState<ResumeRecord[]>([]);
+  const resumeCacheKey = user ? `resumes:${user.id}` : "";
+  const [resumes, setResumes] = useState<ResumeRecord[]>(
+    () => getCached<ResumeRecord[]>(resumeCacheKey) ?? []
+  );
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [dragActive, setDragActive] = useState(false);
@@ -113,7 +124,7 @@ export default function ResumePage() {
       }
 
       try {
-        setResumes(await fetchResumes());
+        setResumes(await fetchResumes(user.id));
       } catch (err) {
         console.error("[Resume] Failed to load resumes:", err);
       }
@@ -224,7 +235,8 @@ export default function ResumePage() {
         /*
          * Refresh resume list
          */
-        setResumes(await fetchResumes());
+        invalidateCached(resumeCacheKey);
+        setResumes(await fetchResumes(user.id));
       } catch (err: unknown) {
         console.error("[Resume] Upload/analysis failed:", {
           userId: user.id,
@@ -304,7 +316,8 @@ export default function ResumePage() {
         /*
          * Refresh list
          */
-        setResumes(await fetchResumes());
+        invalidateCached(resumeCacheKey);
+        setResumes(await fetchResumes(user.id));
       } catch (err: unknown) {
         console.error("[Resume] Analysis failed:", {
           userId: user.id,
@@ -405,9 +418,11 @@ export default function ResumePage() {
           throw new Error(payload.message || "Failed to delete resume.");
         }
 
-        setResumes((prev) =>
-          prev.filter((r) => r.id !== resume.id)
-        );
+        setResumes((prev) => {
+          const nextResumes = prev.filter((r) => r.id !== resume.id);
+          setCached(resumeCacheKey, nextResumes);
+          return nextResumes;
+        });
 
         setSuccess("Resume deleted successfully.");
       } catch (err: unknown) {
