@@ -432,10 +432,6 @@ export function useInterview() {
 
         setError(null);
 
-        setStartedAt(
-          Date.now()
-        );
-
         resumeInterviewQuestionsRef.current =
           options?.resumeQuestions ??
           [];
@@ -467,12 +463,18 @@ export function useInterview() {
         setLoading(true);
 
         try {
-          return await requestQuestion(
+          const question = await requestQuestion(
             config,
             [],
             [],
             options?.resumeQuestions
           );
+
+          if (question) {
+            setStartedAt(Date.now());
+          }
+
+          return question;
         } catch (
           requestError: unknown
         ) {
@@ -488,6 +490,12 @@ export function useInterview() {
           );
 
           setError(message);
+
+          setStartedAt(null);
+          setState((previous) => ({
+            ...previous,
+            status: "setup",
+          }));
 
           return null;
         } finally {
@@ -1487,6 +1495,8 @@ export function useInterview() {
 
   return {
     state,
+
+    startedAt,
 
     startInterview,
 

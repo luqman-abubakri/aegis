@@ -125,10 +125,14 @@ function readTranscriptMessage(message: unknown): TranscriptMessage | null {
     return null;
   }
 
+  if (message.type !== "transcript") {
+    return null;
+  }
+
   const transcript =
     typeof message.transcript === "string"
       ? message.transcript.trim()
-      : typeof message.text === "string" && message.type === "transcript"
+      : typeof message.text === "string"
         ? message.text.trim()
         : "";
 
@@ -146,7 +150,7 @@ function readTranscriptMessage(message: unknown): TranscriptMessage | null {
   return {
     transcript,
     isUser: message.role === "user",
-    isFinal: transcriptType !== "partial" && transcriptType !== "interim",
+    isFinal: transcriptType === "final",
   };
 }
 

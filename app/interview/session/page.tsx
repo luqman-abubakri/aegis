@@ -10,8 +10,8 @@ import { InterviewSetup } from "@/components/interview/InterviewSetup";
 import { InterviewChat } from "@/components/interview/InterviewChat";
 import { VoiceControls } from "@/components/interview/VoiceControls";
 import { FeedbackCard } from "@/components/interview/FeedbackCard";
-import { Bot, ArrowLeft, Loader2, CheckCircle, AlertTriangle, Clock3, ChevronLeft, ChevronRight } from "lucide-react";
-import type { InterviewConfig, Difficulty } from "@/types";
+import { Bot, ArrowLeft, Loader2, CheckCircle, AlertTriangle, Clock3, ChevronRight } from "lucide-react";
+import type { InterviewConfig } from "@/types";
 
 const RESUME_INTERVIEW_STORAGE_KEY = "aegis_resume_interview";
 
@@ -85,12 +85,11 @@ function SessionContent() {
   const [saveError, setSaveError] = useState<string | null>(null);
   const [questionCount, setQuestionCount] = useState(0);
   const [vapiErrorMsg, setVapiErrorMsg] = useState<string | null>(null);
-  const [timeRemaining, setTimeRemaining] = useState(20 * 60);
+  const [timeRemaining, setTimeRemaining] = useState(0);
   const [selectedDurationMinutes, setSelectedDurationMinutes] = useState(20);
   const [finishStage, setFinishStage] = useState<string | null>(null);
   const [resumeQuestions, setResumeQuestions] = useState<Array<{ id?: string; question: string; type?: string; focus?: string }>>([]);
   const MAX_QUESTIONS = 5;
-const finishInterviewRef = useRef<() => Promise<boolean>>(async () => false);
   const autoFinishTriggeredRef = useRef(false);
   const isFinishingRef = useRef(false);
   const finishCompletedRef = useRef(false);
@@ -175,9 +174,6 @@ const handleTranscriptUpdate = useCallback(
   const vapi = useVapi({
     onTranscriptUpdate: handleTranscriptUpdate,
     onUserTranscript: handleUserTranscript,
-    onCallEnded: () => {
-      void finishInterviewRef.current();
-    },
     onError: (error) => {
       console.error("Vapi call error:", error);
       setVapiErrorMsg(error.message);
@@ -190,12 +186,9 @@ const handleTranscriptUpdate = useCallback(
   }, [vapi.speak]);
 
   const roleParam = searchParams.get("role") || "";
-  const difficultyParam = searchParams.get("difficulty") || "";
-  const interviewTypeParam = searchParams.get("interviewType") || "";
   const modeParam = searchParams.get("mode") || "";
   const durationParam = searchParams.get("duration") || "";
   const resumeInterviewParam = searchParams.get("resumeInterview") === "1" || searchParams.get("resumeInterview") === "true";
-  const hasUrlConfig = !!(roleParam && difficultyParam && interviewTypeParam);
   const voiceMode = modeParam === "voice";
 
   const handleFinishInterview = useCallback(async (): Promise<boolean> => {
@@ -252,10 +245,6 @@ const handleTranscriptUpdate = useCallback(
     }
   }, [interview, router, voiceMode, vapi]);
 
-  useEffect(() => {
-    finishInterviewRef.current = handleFinishInterview;
-  }, [handleFinishInterview]);
-
   // Cleanup redirect timeout on unmount.
   useEffect(() => {
     return () => {
@@ -272,8 +261,8 @@ const handleTranscriptUpdate = useCallback(
         Math.min(120, Number(config.durationMinutes ?? (Number(durationParam) || 20)))
       );
       setSelectedDurationMinutes(normalizedDurationMinutes);
-      endTimestampRef.current = Date.now() + normalizedDurationMinutes * 60 * 1000;
-      setTimeRemaining(normalizedDurationMinutes * 60);
+      endTimestampRef.current = null;
+      setTimeRemaining(0);
       autoFinishTriggeredRef.current = false;
       isFinishingRef.current = false;
       finishCompletedRef.current = false;
@@ -292,8 +281,6 @@ await interview.startInterview(
     },
     [durationParam, interview, resumeInterviewParam, resumeQuestions]
   );
-
-  const [startupConfig, setStartupConfig] = useState<InterviewConfig | null>(null);
 
   useEffect(() => {
     if (!resumeInterviewParam) {
@@ -323,37 +310,18 @@ await interview.startInterview(
     return () => window.clearTimeout(timeout);
   }, [resumeInterviewParam]);
 
-  useEffect(() => {
-    if (!hasUrlConfig || !roleParam || !difficultyParam || !interviewTypeParam) {
-      return;
-    }
-
-    const nextConfig: InterviewConfig = {
-      role: roleParam,
-      interviewType: interviewTypeParam as InterviewConfig["interviewType"],
-      difficulty: difficultyParam as Difficulty,
-      mode: modeParam === "voice" ? "voice" : "text",
-      durationMinutes: Number(durationParam) || 20,
-      totalQuestions: MAX_QUESTIONS,
-    };
-
-    setStartupConfig(nextConfig);
-  }, [durationParam, difficultyParam, hasUrlConfig, interviewTypeParam, modeParam, roleParam]);
-
-  useEffect(() => {
-    if (!startupConfig) {
-      return;
-    }
-
-    void handleStartInterview(startupConfig);
-    setStartupConfig(null);
-  }, [handleStartInterview, startupConfig]);
-
   // Timestamp-based countdown with drift resistance and visibility recalculation.
   useEffect(() => {
-    if (interview.state.status !== "in-progress" || endTimestampRef.current === null) {
+    if (
+      interview.state.status !== "in-progress" ||
+      interview.startedAt === null
+    ) {
+      endTimestampRef.current = null;
       return;
     }
+
+    endTimestampRef.current =
+      interview.startedAt + selectedDurationMinutes * 60 * 1000;
 
     const updateTimer = () => {
       if (endTimestampRef.current === null) {
@@ -380,7 +348,7 @@ await interview.startInterview(
       window.clearInterval(interval);
       document.removeEventListener("visibilitychange", handleVisibility);
     };
-  }, [interview.state.status]);
+  }, [interview.startedAt, interview.state.status, selectedDurationMinutes]);
 
   // Auto-finish when the timer reaches zero — executes only once, resets on failure.
   useEffect(() => {
@@ -428,8 +396,6 @@ await interview.startInterview(
   }, [vapi, interview]);
 
   const handleVoiceEndCall = useCallback(async () => {
-    // vapi.endCall() will trigger the `call-end` event → onCallEnded → finishInterviewRef.current().
-    // The isFinishingRef guard inside handleFinishInterview prevents double execution.
     await vapi.endCall();
     await handleFinishInterview();
   }, [vapi, handleFinishInterview]);
@@ -437,7 +403,7 @@ await interview.startInterview(
 const currentGraphIndex = interview.state.currentQuestionIndex;
   const progressValue = ((currentGraphIndex + 1) / MAX_QUESTIONS) * 100;
   const timerPercent = (timeRemaining / (selectedDurationMinutes * 60)) * 100;
-  const isFinishing = isFinishingRef.current || interview.isFinishing;
+  const isFinishing = saving || interview.isFinishing;
 
   if (interview.state.status === "completed" && interview.state.feedback) {
     return (
