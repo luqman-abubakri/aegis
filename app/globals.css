@@ -29,80 +29,6 @@ body {
   border-radius: 0 !important;
 }
 
-/* Keep older authenticated surfaces on the shared editorial palette. */
-[class*="bg-[#020817]"],
-[class*="bg-slate-950"],
-[class*="bg-slate-900"],
-[class*="bg-slate-800"] {
-  background-color: var(--background) !important;
-}
-
-[class*="bg-slate-800/"],
-[class*="bg-slate-900/"],
-[class*="bg-slate-950/"] {
-  background-color: #ffffff !important;
-}
-
-[class*="bg-blue-"],
-[class*="bg-cyan-"],
-[class*="bg-violet-"],
-[class*="bg-fuchsia-"],
-[class*="bg-emerald-"],
-[class*="bg-green-"],
-[class*="bg-red-"],
-[class*="bg-amber-"],
-[class*="bg-indigo-"],
-[class*="bg-sky-"] {
-  background-color: #f1f1ee !important;
-}
-
-[class*="text-blue-"],
-[class*="text-cyan-"],
-[class*="text-violet-"],
-[class*="text-fuchsia-"],
-[class*="text-emerald-"],
-[class*="text-green-"],
-[class*="text-red-"],
-[class*="text-amber-"],
-[class*="text-indigo-"],
-[class*="text-sky-"] {
-  color: #ea580c !important;
-}
-
-[class*="text-slate-"] {
-  color: #666666 !important;
-}
-
-[class*="border-blue-"],
-[class*="border-cyan-"],
-[class*="border-violet-"],
-[class*="border-fuchsia-"],
-[class*="border-emerald-"],
-[class*="border-green-"],
-[class*="border-red-"],
-[class*="border-amber-"],
-[class*="border-indigo-"],
-[class*="border-sky-"],
-[class*="border-slate-"] {
-  border-color: #d9d9d4 !important;
-}
-
-[class*="bg-gradient"] {
-  background-image: none !important;
-  background-color: #ffffff !important;
-}
-
-[class*="bg-[#F97316]"][class*="text-white"],
-[class*="bg-[#111111]"][class*="text-white"] {
-  color: #ffffff !important;
-}
-
-[class*="backdrop-blur"],
-[class*="shadow-"] {
-  backdrop-filter: none !important;
-  box-shadow: none !important;
-}
-
 .hard-card {
   box-shadow: 4px 4px 0 #111111;
   transition: transform 200ms ease-out, box-shadow 200ms ease-out;
@@ -128,26 +54,17 @@ body {
   box-shadow: 2px 2px 0 #111111;
 }
 
-button,
-input,
-textarea,
-select {
+button {
   box-shadow: 4px 4px 0 #111111;
   transition: transform 180ms ease-out, box-shadow 180ms ease-out;
 }
 
-button:hover,
-input:hover,
-textarea:hover,
-select:hover {
+button:hover {
   transform: translate(-2px, -2px);
   box-shadow: 5px 5px 0 #111111;
 }
 
-button:active,
-input:active,
-textarea:active,
-select:active {
+button:active {
   transform: translate(1px, 1px);
   box-shadow: 2px 2px 0 #111111;
 }

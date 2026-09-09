@@ -107,7 +107,7 @@ export default function SignUpPage() {
             Create Your Account
           </h1>
 
-          <p className="mt-2 text-center text-slate-400">
+          <p className="mt-2 text-center text-[#666666]">
             Start preparing for technical interviews with your AI
             interview coach.
           </p>
@@ -128,7 +128,7 @@ export default function SignUpPage() {
         <form onSubmit={handleSubmit} className="space-y-6">
           {/* Full Name */}
           <div>
-            <label className="mb-2 block text-sm text-slate-300">
+            <label className="mb-2 block text-sm text-[#666666]">
               Full Name
             </label>
 
@@ -154,7 +154,7 @@ export default function SignUpPage() {
 
           {/* Email */}
           <div>
-            <label className="mb-2 block text-sm text-slate-300">
+            <label className="mb-2 block text-sm text-[#666666]">
               Email Address
             </label>
 
@@ -180,7 +180,7 @@ export default function SignUpPage() {
 
           {/* Password */}
           <div>
-            <label className="mb-2 block text-sm text-slate-300">
+            <label className="mb-2 block text-sm text-[#666666]">
               Password
             </label>
 
