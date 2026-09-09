@@ -6,6 +6,8 @@ import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import { AuthProvider } from "@/contexts/AuthProvider";
 
+const siteUrl = "https://aegis-psi-three.vercel.app";
+
 const sora = Sora({
   subsets: ["latin"],
   weight: ["400", "500", "600", "700", "800"],
@@ -13,21 +15,23 @@ const sora = Sora({
 });
 
 export const metadata: Metadata = {
-  metadataBase: new URL("https://aegis-psi-three.vercel.app/"),
+  metadataBase: new URL(siteUrl),
   title: {
-    default: "Intervyou.ai | Technical Interview Practice",
+    default: "Intervyou.ai | AI Technical Interview Preparation",
     template: "%s | Intervyou.ai",
   },
   description:
-    "Prepare for technical interviews with AI-generated questions, realistic text and voice interview simulations, resume analysis, scoring, and personalized feedback.",
+    "Prepare for technical interviews with AI mock interviews, resume analysis, performance scoring, and personalized interview feedback.",
   applicationName: "Intervyou.ai",
   keywords: [
     "AI interview preparation",
     "technical interview practice",
     "AI mock interview",
-    "voice interview simulation",
+    "technical interview questions",
+    "coding interview practice",
     "resume analysis",
     "interview feedback",
+    "voice interview simulation",
   ],
   authors: [{ name: "Intervyou.ai" }],
   creator: "Intervyou.ai",
@@ -37,32 +41,32 @@ export const metadata: Metadata = {
   },
   openGraph: {
     type: "website",
-    url: "https://aegis-psi-three.vercel.app/",
+    url: siteUrl,
     siteName: "Intervyou.ai",
-    title: "Intervyou.ai | Technical Interview Practice",
+    title: "Intervyou.ai | AI Technical Interview Preparation",
     description:
-      "Practice realistic technical interviews with AI voice and text simulations, resume analysis, scoring, and personalized feedback.",
+      "Practice technical interviews with AI mock interviews, resume analysis, performance scoring, and personalized feedback.",
     locale: "en_US",
     images: [
       {
-        url: "/opengraph-image",
+        url: "/og-image.png.png",
         width: 1200,
         height: 630,
-        alt: "Intervyou.ai technical interview practice",
+        alt: "Intervyou.ai AI technical interview preparation",
       },
     ],
   },
   twitter: {
     card: "summary_large_image",
-    title: "Intervyou.ai | Technical Interview Practice",
+    title: "Intervyou.ai | AI Technical Interview Preparation",
     description:
-      "Practice realistic technical interviews with AI voice and text simulations, resume analysis, scoring, and personalized feedback.",
-    images: ["/opengraph-image"],
+      "Practice technical interviews with AI mock interviews, resume analysis, performance scoring, and personalized feedback.",
+    images: ["/og-image.png.png"],
   },
   icons: {
-    icon: [{ url: "/icon", type: "image/png" }],
-    shortcut: ["/favicon.ico"],
-    apple: [{ url: "/icon", type: "image/png" }],
+    icon: [{ url: "/logo.png", type: "image/png" }],
+    shortcut: ["/logo.png"],
+    apple: [{ url: "/logo.png", type: "image/png" }],
   },
   robots: {
     index: true,
@@ -82,8 +86,43 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const structuredData = {
+    "@context": "https://schema.org",
+    "@graph": [
+      {
+        "@type": "Organization",
+        "@id": `${siteUrl}/#organization`,
+        name: "Intervyou.ai",
+        url: siteUrl,
+        logo: `${siteUrl}/logo.png`,
+      },
+      {
+        "@type": "WebSite",
+        "@id": `${siteUrl}/#website`,
+        name: "Intervyou.ai",
+        url: siteUrl,
+        description: metadata.description,
+        publisher: { "@id": `${siteUrl}/#organization` },
+      },
+      {
+        "@type": "WebApplication",
+        name: "Intervyou.ai",
+        url: siteUrl,
+        applicationCategory: "EducationalApplication",
+        operatingSystem: "Web",
+        description: metadata.description,
+      },
+    ],
+  };
+
   return (
     <html lang="en" className={sora.variable}>
+      <head>
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData) }}
+        />
+      </head>
       <body className="min-h-screen bg-[#FAF9F6] text-[#111111] antialiased [font-family:var(--font-sora)]">
         <AuthProvider>
           <Navbar />
