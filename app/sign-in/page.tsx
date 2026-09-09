@@ -3,7 +3,6 @@
 import Link from "next/link";
 import { motion } from "framer-motion";
 import {
-  BrainCircuit,
   Mail,
   Lock,
   ArrowRight,
@@ -89,9 +88,7 @@ export default function SignInPage() {
       >
         {/* Logo */}
         <div className="mb-10 flex flex-col items-center">
-          <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-blue-600 to-cyan-500 shadow-lg shadow-blue-600/30">
-            <BrainCircuit size={34} />
-          </div>
+          <img src="/logo.png" alt="Intervyou.ai" className="h-16 w-32 object-contain" />
 
           <h1 className="mt-6 text-3xl font-black">
             Welcome Back
@@ -121,7 +118,7 @@ export default function SignInPage() {
               Email Address
             </label>
 
-            <div className="flex items-center rounded-xl border border-slate-700 bg-slate-950 px-4 transition focus-within:border-blue-500">
+            <div className="hard-edge flex items-center border border-slate-700 bg-slate-950 px-4 transition focus-within:border-blue-500">
               <Mail className="text-slate-500" size={20} />
 
               <input
@@ -141,7 +138,7 @@ export default function SignInPage() {
               Password
             </label>
 
-            <div className="flex items-center rounded-xl border border-slate-700 bg-slate-950 px-4 transition focus-within:border-blue-500">
+            <div className="hard-edge flex items-center border border-slate-700 bg-slate-950 px-4 transition focus-within:border-blue-500">
               <Lock className="text-slate-500" size={20} />
 
               <input
@@ -185,7 +182,7 @@ export default function SignInPage() {
           <button
             type="submit"
             disabled={loading}
-            className="group flex w-full items-center justify-center gap-3 rounded-xl bg-gradient-to-r from-blue-600 to-cyan-500 py-4 font-semibold transition-all duration-300 hover:scale-[1.02] hover:shadow-lg hover:shadow-blue-500/30 disabled:cursor-not-allowed disabled:opacity-60"
+            className="hard-edge group flex w-full items-center justify-center gap-3 bg-[#F97316] py-4 font-semibold text-white transition-colors duration-300 hover:bg-[#EA580C] disabled:cursor-not-allowed disabled:opacity-60"
           >
             {loading ? (
               <LoadingSpinner size="sm" />

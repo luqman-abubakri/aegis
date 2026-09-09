@@ -42,8 +42,8 @@ export function ConfirmDialog({
 
   const confirmColorClass =
     variant === "danger"
-      ? "border-red-500/30 bg-red-500/10 text-red-400 hover:bg-red-500/20"
-      : "border-blue-500/30 bg-blue-500/10 text-blue-400 hover:bg-blue-500/20";
+      ? "border-[#F97316] bg-[#fff7ed] text-[#EA580C] hover:bg-[#F97316] hover:text-white"
+      : "border-[#111111] bg-[#F7F7F5] text-[#111111] hover:bg-[#111111] hover:text-white";
 
   return (
     <AnimatePresence>
@@ -53,7 +53,7 @@ export function ConfirmDialog({
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           transition={{ duration: 0.2 }}
-          className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm"
+          className="fixed inset-0 z-[100] flex items-center justify-center bg-[#111111]/70"
           onClick={() => {
             if (!loading) onCancel();
           }}
@@ -67,22 +67,22 @@ export function ConfirmDialog({
             role="dialog"
             aria-modal="true"
             aria-labelledby="confirm-dialog-title"
-            className="mx-4 w-full max-w-md rounded-3xl border border-slate-800 bg-slate-900/95 p-6 shadow-2xl backdrop-blur-xl sm:p-8"
+            className="mx-4 w-full max-w-md border border-[#111111] bg-white p-6 sm:p-8"
           >
             {variant === "danger" && (
-              <div className="mb-5 flex h-14 w-14 items-center justify-center rounded-2xl border border-red-500/20 bg-red-500/10">
-                <AlertTriangle size={28} className="text-red-400" />
+              <div className="mb-5 flex h-14 w-14 items-center justify-center border border-[#F97316] bg-[#fff7ed]">
+                <AlertTriangle size={28} className="text-[#EA580C]" />
               </div>
             )}
 
             <h2
               id="confirm-dialog-title"
-              className="text-xl font-bold text-white"
+              className="text-xl font-bold text-[#111111]"
             >
               {title}
             </h2>
 
-            <p className="mt-3 text-sm leading-relaxed text-slate-400">
+            <p className="mt-3 text-sm leading-relaxed text-[#666666]">
               {message}
             </p>
 
@@ -90,7 +90,7 @@ export function ConfirmDialog({
               <button
                 onClick={onCancel}
                 disabled={loading}
-                className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-700 bg-slate-800/70 px-5 py-3 text-sm font-semibold text-slate-300 transition-all duration-300 hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50"
+                className="inline-flex items-center justify-center gap-2 border border-[#111111] bg-white px-5 py-3 text-sm font-semibold text-[#111111] transition-colors hover:bg-[#F7F7F5] disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {cancelLabel}
               </button>

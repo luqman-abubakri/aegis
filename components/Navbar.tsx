@@ -4,7 +4,6 @@ import Link from "next/link";
 import {
   Menu,
   X,
-  BrainCircuit,
   LogOut,
   User as UserIcon,
 } from "lucide-react";
@@ -63,42 +62,41 @@ const Navbar = () => {
   return (
     <header
       ref={navRef}
-      className="fixed top-0 z-50 w-full border-b border-slate-800/60 bg-slate-950/70 backdrop-blur-xl"
+      className="fixed top-0 z-50 w-full border-b border-[#111111] bg-white"
     >
-      <nav className="mx-auto flex h-20 max-w-7xl items-center justify-between px-5 sm:px-6 lg:max-w-7xl lg:px-8">
+      <nav className="mx-auto flex h-[76px] max-w-[1440px] items-center justify-between px-6 sm:px-8 lg:px-20">
         {/* Logo */}
         <Link href="/" className="flex items-center gap-3">
-          <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-gradient-to-br from-blue-600 to-cyan-500 shadow-lg shadow-blue-600/30 transition-transform duration-300 hover:scale-110">
-            <BrainCircuit size={24} className="text-white" />
+          <div className="flex h-10 w-[132px] items-center justify-start">
+            <img
+              src="/logo.png"
+              alt="Intervyou.ai"
+              className="h-auto w-full object-contain object-left"
+            />
           </div>
 
-          <div>
-            <h1 className="text-xl font-bold tracking-wide text-white">
-              Nexly
-            </h1>
-            <p className="text-xs text-slate-400">AI Interview Coach</p>
-          </div>
+          <span className="sr-only">Intervyou.ai</span>
         </Link>
 
         {/* Desktop Navigation */}
         <div className="hidden items-center gap-4 lg:flex">
           {loading ? (
             <>
-              <div className="h-10 w-28 animate-pulse rounded-xl bg-slate-800" />
-              <div className="h-10 w-32 animate-pulse rounded-xl bg-slate-800" />
+              <div className="h-10 w-28 animate-pulse bg-[#eeeeeb]" />
+              <div className="h-10 w-32 animate-pulse bg-[#eeeeeb]" />
             </>
           ) : user ? (
             <>
               <Link
                 href="/dashboard"
-                className="rounded-xl border border-slate-700 px-5 py-2 text-sm font-medium text-slate-300 transition-all duration-300 hover:border-blue-500 hover:bg-slate-900 hover:text-blue-400"
+                className="nav-link border border-[#111111] px-5 py-2 text-sm font-semibold text-[#111111]"
               >
                 Dashboard
               </Link>
 
               <Link
                 href="/profile"
-                className="flex items-center gap-2 rounded-xl border border-slate-700 px-5 py-2 text-sm font-medium text-slate-300 transition-all duration-300 hover:border-blue-500 hover:bg-slate-900 hover:text-blue-400"
+                className="nav-link flex items-center gap-2 border border-[#111111] px-5 py-2 text-sm font-semibold text-[#111111]"
               >
                 <UserIcon size={16} />
                 Profile
@@ -106,7 +104,7 @@ const Navbar = () => {
 
               <button
                 onClick={requestLogout}
-                className="flex items-center gap-2 rounded-xl border border-slate-700 px-5 py-2 text-sm font-medium text-slate-300 transition-all duration-300 hover:border-red-500 hover:bg-red-500/10 hover:text-red-400"
+                className="flex items-center gap-2 border border-[#111111] px-5 py-2 text-sm font-semibold text-[#111111] transition-colors hover:border-[#EA580C] hover:bg-[#EA580C] hover:text-white"
               >
                 <LogOut size={16} />
                 Sign Out
@@ -116,14 +114,14 @@ const Navbar = () => {
             <>
               <Link
                 href="/sign-in"
-                className="rounded-xl border border-slate-700 px-5 py-2 text-sm font-medium text-slate-300 transition-all duration-300 hover:border-blue-500 hover:bg-slate-900 hover:text-blue-400"
+                className="nav-link border border-[#111111] px-5 py-2 text-sm font-semibold text-[#111111]"
               >
                 Sign In
               </Link>
 
               <Link
                 href="/sign-up"
-                className="rounded-xl bg-gradient-to-r from-blue-600 to-cyan-500 px-5 py-2 text-sm font-semibold text-white shadow-lg shadow-blue-600/30 transition-all duration-300 hover:scale-105 hover:shadow-blue-500/40"
+                className="hard-edge bg-[#F97316] px-5 py-2 text-sm font-semibold text-white hover:bg-[#EA580C]"
               >
                 Get Started
               </Link>
@@ -134,7 +132,7 @@ const Navbar = () => {
         {/* Mobile Menu Toggle */}
         <button
           onClick={() => setOpen(!open)}
-          className="rounded-lg p-2 text-white transition hover:bg-slate-800 lg:hidden"
+          className="p-2 text-[#111111] transition hover:bg-[#FAF9F6] lg:hidden"
           aria-label="Toggle Menu"
           aria-expanded={open}
         >
@@ -144,19 +142,19 @@ const Navbar = () => {
 
       {/* Mobile Menu */}
       {open && (
-        <div className="border-t border-slate-800 bg-slate-950/95 backdrop-blur-xl lg:hidden">
+        <div className="border-t border-[#111111] bg-white lg:hidden">
           <div className="flex flex-col gap-4 px-5 py-6">
             {loading ? (
               <>
-                <div className="h-12 w-full animate-pulse rounded-xl bg-slate-800" />
-                <div className="h-12 w-full animate-pulse rounded-xl bg-slate-800" />
+                <div className="h-12 w-full animate-pulse bg-[#eeeeeb]" />
+                <div className="h-12 w-full animate-pulse bg-[#eeeeeb]" />
               </>
             ) : user ? (
               <>
                 <Link
                   href="/dashboard"
                   onClick={() => setOpen(false)}
-                  className="w-full rounded-xl border border-slate-700 py-3 text-center font-medium text-slate-300 transition-all duration-300 hover:border-blue-500 hover:bg-slate-900 hover:text-blue-400"
+                  className="nav-link w-full border border-[#111111] py-3 text-center font-semibold text-[#111111]"
                 >
                   Dashboard
                 </Link>
@@ -164,7 +162,7 @@ const Navbar = () => {
                 <Link
                   href="/profile"
                   onClick={() => setOpen(false)}
-                  className="flex w-full items-center justify-center gap-2 rounded-xl border border-slate-700 py-3 font-medium text-slate-300 transition-all duration-300 hover:border-blue-500 hover:bg-slate-900 hover:text-blue-400"
+                  className="nav-link flex w-full items-center justify-center gap-2 border border-[#111111] py-3 font-semibold text-[#111111]"
                 >
                   <UserIcon size={16} />
                   Profile
@@ -172,7 +170,7 @@ const Navbar = () => {
 
                 <button
                   onClick={requestLogout}
-                  className="flex w-full items-center justify-center gap-2 rounded-xl border border-slate-700 py-3 font-medium text-slate-300 transition-all duration-300 hover:border-red-500 hover:bg-red-500/10 hover:text-red-400"
+                  className="flex w-full items-center justify-center gap-2 border border-[#111111] py-3 font-semibold text-[#111111] transition-colors hover:border-[#EA580C] hover:bg-[#EA580C] hover:text-white"
                 >
                   <LogOut size={16} />
                   Sign Out
@@ -183,7 +181,7 @@ const Navbar = () => {
                 <Link
                   href="/sign-in"
                   onClick={() => setOpen(false)}
-                  className="w-full rounded-xl border border-slate-700 py-3 text-center font-medium text-slate-300 transition-all duration-300 hover:border-blue-500 hover:bg-slate-900 hover:text-blue-400"
+                  className="nav-link w-full border border-[#111111] py-3 text-center font-semibold text-[#111111]"
                 >
                   Sign In
                 </Link>
@@ -191,7 +189,7 @@ const Navbar = () => {
                 <Link
                   href="/sign-up"
                   onClick={() => setOpen(false)}
-                  className="w-full rounded-xl bg-gradient-to-r from-blue-600 to-cyan-500 py-3 text-center font-semibold text-white shadow-lg shadow-blue-600/20 transition-all duration-300 hover:scale-[1.02]"
+                  className="hard-edge w-full bg-[#F97316] py-3 text-center font-semibold text-white hover:bg-[#EA580C]"
                 >
                   Get Started
                 </Link>

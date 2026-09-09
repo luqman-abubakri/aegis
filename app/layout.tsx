@@ -1,19 +1,26 @@
 import type { Metadata } from "next";
+import { Sora } from "next/font/google";
 import "./globals.css";
 
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import { AuthProvider } from "@/contexts/AuthProvider";
 
+const sora = Sora({
+  subsets: ["latin"],
+  weight: ["400", "500", "600", "700", "800"],
+  variable: "--font-sora",
+});
+
 export const metadata: Metadata = {
   metadataBase: new URL("https://aegis-psi-three.vercel.app/"),
   title: {
-    default: "Nexly | AI Interview Preparation & Technical Interview Practice",
-    template: "%s | Nexly",
+    default: "Intervyou.ai | Technical Interview Practice",
+    template: "%s | Intervyou.ai",
   },
   description:
     "Prepare for technical interviews with AI-generated questions, realistic text and voice interview simulations, resume analysis, scoring, and personalized feedback.",
-  applicationName: "Nexly",
+  applicationName: "Intervyou.ai",
   keywords: [
     "AI interview preparation",
     "technical interview practice",
@@ -22,17 +29,17 @@ export const metadata: Metadata = {
     "resume analysis",
     "interview feedback",
   ],
-  authors: [{ name: "Nexly" }],
-  creator: "Nexly",
-  publisher: "Nexly",
+  authors: [{ name: "Intervyou.ai" }],
+  creator: "Intervyou.ai",
+  publisher: "Intervyou.ai",
   alternates: {
     canonical: "/",
   },
   openGraph: {
     type: "website",
     url: "https://aegis-psi-three.vercel.app/",
-    siteName: "Nexly",
-    title: "Nexly | AI Interview Preparation & Technical Interview Practice",
+    siteName: "Intervyou.ai",
+    title: "Intervyou.ai | Technical Interview Practice",
     description:
       "Practice realistic technical interviews with AI voice and text simulations, resume analysis, scoring, and personalized feedback.",
     locale: "en_US",
@@ -41,13 +48,13 @@ export const metadata: Metadata = {
         url: "/opengraph-image",
         width: 1200,
         height: 630,
-        alt: "Nexly AI interview preparation and technical interview practice",
+        alt: "Intervyou.ai technical interview practice",
       },
     ],
   },
   twitter: {
     card: "summary_large_image",
-    title: "Nexly | AI Interview Preparation & Technical Interview Practice",
+    title: "Intervyou.ai | Technical Interview Practice",
     description:
       "Practice realistic technical interviews with AI voice and text simulations, resume analysis, scoring, and personalized feedback.",
     images: ["/opengraph-image"],
@@ -76,8 +83,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
-      <body className="min-h-screen bg-[#020817] text-white antialiased">
+    <html lang="en" className={sora.variable}>
+      <body className="min-h-screen bg-[#FAF9F6] text-[#111111] antialiased [font-family:var(--font-sora)]">
         <AuthProvider>
           <Navbar />
           <main>{children}</main>

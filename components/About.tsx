@@ -22,42 +22,42 @@ const features = [
     title: "AI Voice Interviews",
     description:
       "Practice realistic technical interviews through natural voice conversations powered by AI.",
-    color: "from-blue-500 to-cyan-500",
+    color: "bg-[#EF4444]",
   },
   {
     icon: Brain,
     title: "Smart AI Feedback",
     description:
       "Receive detailed feedback on technical knowledge, communication, confidence, and problem-solving.",
-    color: "from-violet-500 to-fuchsia-500",
+    color: "bg-[#FACC15]",
   },
   {
     icon: FileText,
     title: "Resume Analysis",
     description:
       "Upload your resume and receive ATS-friendly suggestions, missing skills, and improvement tips.",
-    color: "from-emerald-500 to-green-500",
+    color: "bg-[#EC4899]",
   },
   {
     icon: BarChart3,
     title: "Progress Tracking",
     description:
       "Monitor interview scores, identify weak areas, and visualize your improvement over time.",
-    color: "from-orange-500 to-red-500",
+    color: "bg-[#A3E635]",
   },
   {
     icon: Clock3,
     title: "Real-Time Interview Simulation",
     description:
       "Experience timed interviews that replicate the pressure of real technical hiring processes.",
-    color: "from-sky-500 to-blue-500",
+    color: "bg-[#A855F7]",
   },
   {
     icon: BrainCircuit,
     title: "Personal Learning Roadmap",
     description:
-      "After every interview, Nexly generates a personalized roadmap to improve your technical skills.",
-    color: "from-indigo-500 to-violet-500",
+      "After every interview, Intervyou.ai generates a personalized roadmap to improve your technical skills.",
+    color: "bg-[#F97316]",
   },
 ];
 
@@ -188,13 +188,13 @@ const FeatureCarousel = () => {
                 once: true,
                 amount: 0.4,
               }}
-              className="w-[calc(100vw-40px)] max-w-[380px] flex-none rounded-3xl border border-slate-800 bg-slate-900/60 p-6 backdrop-blur-xl sm:w-[380px] sm:p-8"
+              className="hard-card w-[calc(100vw-40px)] max-w-[380px] flex-none border border-[#111111] bg-white p-6 sm:w-[380px] sm:p-8"
               style={{
                 scrollSnapAlign: "center",
               }}
             >
               <div
-                className={`mb-6 flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br sm:mb-8 sm:h-16 sm:w-16 ${feature.color}`}
+                className={`mb-6 flex h-14 w-14 items-center justify-center border border-[#111111] sm:mb-8 sm:h-16 sm:w-16 ${feature.color}`}
               >
                 <Icon size={26} className="sm:h-[30px] sm:w-[30px]" />
               </div>
@@ -203,7 +203,7 @@ const FeatureCarousel = () => {
                 {feature.title}
               </h2>
 
-              <p className="mt-4 text-sm leading-7 text-slate-400 sm:mt-5 sm:text-base sm:leading-8">
+              <p className="mt-4 text-sm leading-7 text-[#666666] sm:mt-5 sm:text-base sm:leading-8">
                 {feature.description}
               </p>
             </motion.div>
@@ -217,7 +217,7 @@ const FeatureCarousel = () => {
           type="button"
           onClick={handlePrev}
           aria-label="Previous feature"
-          className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full border border-slate-800 text-slate-400 transition-colors hover:border-blue-500/40 hover:text-white sm:h-10 sm:w-10"
+          className="flex h-9 w-9 flex-shrink-0 items-center justify-center border border-[#111111] text-[#111111] transition-colors hover:bg-[#111111] hover:text-white sm:h-10 sm:w-10"
         >
           <ChevronLeft size={18} />
         </button>
@@ -234,8 +234,8 @@ const FeatureCarousel = () => {
               <span
                 className={`block h-1.5 rounded-full transition-all duration-300 ${
                   i === activeIndex
-                    ? "w-6 bg-blue-400"
-                    : "w-1.5 bg-slate-700"
+                    ? "w-6 bg-[#F97316]"
+                    : "w-1.5 bg-[#111111]"
                 }`}
               />
             </button>
@@ -246,7 +246,7 @@ const FeatureCarousel = () => {
           type="button"
           onClick={handleNext}
           aria-label="Next feature"
-          className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full border border-slate-800 text-slate-400 transition-colors hover:border-blue-500/40 hover:text-white sm:h-10 sm:w-10"
+          className="flex h-9 w-9 flex-shrink-0 items-center justify-center border border-[#111111] text-[#111111] transition-colors hover:bg-[#111111] hover:text-white sm:h-10 sm:w-10"
         >
           <ChevronRight size={18} />
         </button>
@@ -284,7 +284,7 @@ export default function FeaturesPage() {
   const ctaHref = user ? "/interview" : "/sign-up";
 
   return (
-    <main className="min-h-screen overflow-x-hidden bg-[#020817] text-white">
+    <main className="min-h-screen overflow-x-hidden bg-[#FAF9F6] text-[#111111]">
       {/* Hero */}
       <section className="mx-auto flex max-w-7xl flex-col items-center px-5 pt-20 pb-8 text-center sm:px-6 sm:pt-24 sm:pb-10 md:pt-28 lg:pt-36">
         <motion.h1
@@ -302,7 +302,7 @@ export default function FeaturesPage() {
           className="mt-6 max-w-4xl text-4xl font-black leading-tight sm:mt-8 sm:text-5xl sm:leading-tight md:text-7xl"
         >
           Everything You Need To
-          <span className="block bg-gradient-to-r from-blue-400 to-cyan-400 bg-clip-text text-transparent">
+          <span className="block text-[#F97316]">
             Ace Technical Interviews
           </span>
         </motion.h1>
@@ -317,9 +317,9 @@ export default function FeaturesPage() {
           transition={{
             delay: 0.2,
           }}
-          className="mt-6 max-w-3xl text-base leading-7 text-slate-400 sm:mt-8 sm:text-lg sm:leading-8"
+          className="mt-6 max-w-3xl text-base leading-7 text-[#666666] sm:mt-8 sm:text-lg sm:leading-8"
         >
-          Nexly combines AI-powered interviews, resume analysis, personalized
+          Intervyou.ai combines AI-powered interviews, resume analysis, personalized
           coaching, and progress tracking into one platform built specifically
           for aspiring tech professionals.
         </motion.p>
@@ -345,7 +345,7 @@ export default function FeaturesPage() {
           variants={stepItemVariants}
           className="text-3xl font-bold leading-tight sm:text-4xl"
         >
-          How Nexly Works In Three Simple Steps
+          How Intervyou.ai Works In Three Simple Steps
         </motion.h2>
 
         <div className="mt-10 grid gap-5 sm:mt-16 sm:gap-10 md:grid-cols-3">
@@ -353,13 +353,15 @@ export default function FeaturesPage() {
             <motion.div
               key={step}
               variants={stepItemVariants}
-              className="rounded-3xl border border-slate-800 bg-slate-900/60 p-6 sm:p-8"
+              className={`hard-card border border-[#111111] p-6 sm:p-8 ${
+                i === 0 ? "bg-[#FACC15]" : i === 1 ? "bg-[#A3E635]" : "bg-[#EC4899]"
+              }`}
             >
-              <div className="mx-auto mb-5 flex h-12 w-12 items-center justify-center rounded-full bg-blue-600 text-lg font-bold sm:mb-6 sm:h-14 sm:w-14 sm:text-xl">
+              <div className="mx-auto mb-5 flex h-12 w-12 items-center justify-center border border-[#111111] bg-[#F97316] text-lg font-bold text-white sm:mb-6 sm:h-14 sm:w-14 sm:text-xl">
                 {i + 1}
               </div>
 
-              <p className="text-sm leading-7 text-slate-400 sm:text-base sm:leading-8">
+              <p className="text-sm leading-7 text-[#666666] sm:text-base sm:leading-8">
                 {step}
               </p>
             </motion.div>
@@ -369,20 +371,20 @@ export default function FeaturesPage() {
 
       {/* CTA */}
       <section className="mx-auto my-16 max-w-5xl px-5 text-center sm:my-28 lg:my-36">
-        <div className="rounded-3xl border border-slate-800 bg-gradient-to-r from-blue-600/20 via-cyan-600/10 to-blue-600/20 p-6 sm:p-10 lg:rounded-[40px] lg:p-14">
+        <div className="cta-wipe border border-[#111111] bg-[#111111] p-6 text-white sm:p-10 lg:p-14">
           <h2 className="break-words text-3xl font-black leading-tight sm:text-4xl lg:text-5xl">
             Ready to Build
             <span className="block">Interview Confidence?</span>
           </h2>
 
-          <p className="mx-auto mt-4 max-w-2xl text-sm leading-7 text-slate-400 sm:mt-5 sm:text-lg sm:leading-8">
-            Start practicing today with Nexly and prepare for your next
+          <p className="mx-auto mt-4 max-w-2xl text-sm leading-7 text-[#cccccc] sm:mt-5 sm:text-lg sm:leading-8">
+            Start practicing today with Intervyou.ai and prepare for your next
             technical interview with confidence.
           </p>
 
           <Link
             href={ctaHref}
-            className="mt-7 inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-blue-600 px-6 py-4 text-sm font-semibold transition-all duration-300 hover:scale-105 hover:bg-blue-500 sm:mt-10 sm:w-auto sm:px-10 sm:text-base"
+            className="mt-7 inline-flex w-full items-center justify-center gap-2 bg-[#F97316] px-6 py-4 text-sm font-semibold transition-colors duration-300 hover:bg-[#EA580C] sm:mt-10 sm:w-auto sm:px-10 sm:text-base"
           >
             {user ? "Start Practice Interview" : "Start Free Interview"}
             <ArrowRight size={18} />

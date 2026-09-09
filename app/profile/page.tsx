@@ -635,7 +635,7 @@ export default function ProfilePage() {
    */
   const name =
     profile?.fullName ||
-    "Nexly User";
+    "Intervyou.ai User";
 
   const email =
     profile?.email ||
@@ -998,7 +998,7 @@ export default function ProfilePage() {
                   </div>
 
                   <p className="mt-2 text-xs text-slate-500">
-                    Your email is managed by your Nexly account.
+                    Your email is managed by your Intervyou.ai account.
                   </p>
 
                 </div>

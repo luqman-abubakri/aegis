@@ -10,11 +10,13 @@
     "postinstall": "patch-package"
   },
   "dependencies": {
+    "@gsap/react": "^2.1.2",
     "@vapi-ai/web": "^2.6.1",
     "bcryptjs": "^3.0.3",
     "cloudinary": "^2.10.0",
     "framer-motion": "^12.42.2",
     "groq-sdk": "^1.4.0",
+    "gsap": "^3.15.0",
     "jose": "^6.2.10",
     "lucide-react": "^1.26.0",
     "mongoose": "^9.9.4",

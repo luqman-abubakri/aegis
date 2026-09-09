@@ -3,7 +3,6 @@
 import Link from "next/link";
 import { motion } from "framer-motion";
 import {
-  BrainCircuit,
   Mail,
   Lock,
   User,
@@ -91,35 +90,18 @@ export default function SignUpPage() {
   };
 
   return (
-    <main className="relative flex min-h-screen items-center justify-center overflow-hidden bg-[#020817] px-5 py-20 text-white">
+    <main className="relative flex min-h-screen items-center justify-center overflow-hidden bg-[#F7F7F5] px-5 py-28 text-[#111111]">
       {/* Background */}
-      <div className="absolute inset-0 -z-10">
-        <div className="absolute left-1/2 top-0 h-[500px] w-[500px] -translate-x-1/2 rounded-full bg-blue-500/10 blur-[160px]" />
-
-        <div
-          className="absolute inset-0 opacity-[0.08]"
-          style={{
-            backgroundImage: `
-              linear-gradient(rgba(255,255,255,.08) 1px, transparent 1px),
-              linear-gradient(90deg, rgba(255,255,255,.08) 1px, transparent 1px)
-            `,
-            backgroundSize: "60px 60px",
-          }}
-        />
-      </div>
-
       {/* Card */}
       <motion.div
         initial={{ opacity: 0, y: 35 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.7 }}
-        className="w-full max-w-lg rounded-3xl border border-slate-800 bg-slate-900/70 p-8 shadow-2xl backdrop-blur-xl sm:p-10"
+        className="w-full max-w-lg border border-[#111111] bg-white p-8 sm:p-10"
       >
         {/* Logo */}
         <div className="mb-10 flex flex-col items-center">
-          <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-blue-600 to-cyan-500 shadow-lg shadow-blue-600/30">
-            <BrainCircuit size={34} />
-          </div>
+          <img src="/logo.png" alt="Intervyou.ai" className="h-16 w-32 object-contain" />
 
           <h1 className="mt-6 text-3xl font-black">
             Create Your Account
@@ -150,7 +132,7 @@ export default function SignUpPage() {
               Full Name
             </label>
 
-            <div className="flex items-center rounded-xl border border-slate-700 bg-slate-950 px-4 transition focus-within:border-blue-500">
+            <div className="hard-edge flex items-center border border-slate-700 bg-slate-950 px-4 transition focus-within:border-blue-500">
               <User
                 className="shrink-0 text-slate-500"
                 size={20}
@@ -176,7 +158,7 @@ export default function SignUpPage() {
               Email Address
             </label>
 
-            <div className="flex items-center rounded-xl border border-slate-700 bg-slate-950 px-4 transition focus-within:border-blue-500">
+            <div className="hard-edge flex items-center border border-slate-700 bg-slate-950 px-4 transition focus-within:border-blue-500">
               <Mail
                 className="shrink-0 text-slate-500"
                 size={20}
@@ -202,7 +184,7 @@ export default function SignUpPage() {
               Password
             </label>
 
-            <div className="flex items-center rounded-xl border border-slate-700 bg-slate-950 px-4 transition focus-within:border-blue-500">
+            <div className="hard-edge flex items-center border border-slate-700 bg-slate-950 px-4 transition focus-within:border-blue-500">
               <Lock
                 className="shrink-0 text-slate-500"
                 size={20}
@@ -276,7 +258,7 @@ export default function SignUpPage() {
           <button
             type="submit"
             disabled={loading}
-            className="group flex w-full items-center justify-center gap-3 rounded-xl bg-gradient-to-r from-blue-600 to-cyan-500 py-4 font-semibold transition-all duration-300 hover:scale-[1.02] hover:shadow-lg hover:shadow-blue-500/30 disabled:cursor-not-allowed disabled:opacity-60"
+            className="hard-edge group flex w-full items-center justify-center gap-3 bg-[#F97316] py-4 font-semibold text-white transition-colors hover:bg-[#EA580C] disabled:cursor-not-allowed disabled:opacity-60"
           >
             {loading ? (
               <LoadingSpinner size="sm" />
@@ -298,7 +280,7 @@ export default function SignUpPage() {
           Already have an account?{" "}
           <Link
             href="/sign-in"
-            className="font-semibold text-blue-400 transition hover:text-cyan-400"
+            className="font-semibold text-[#F97316] transition hover:text-[#EA580C]"
           >
             Sign In
           </Link>

@@ -455,7 +455,7 @@ export default function DashboardPage() {
               <span className="bg-gradient-to-r from-blue-400 to-cyan-400 bg-clip-text text-transparent">
                 {user?.name ||
                   user?.email ||
-                  "Nexly User"}
+                  "Intervyou.ai User"}
               </span>
             </h1>
 

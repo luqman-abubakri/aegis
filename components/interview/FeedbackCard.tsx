@@ -21,53 +21,47 @@ export function FeedbackCard({
 
   const scoreColor =
     feedback.overallScore >= 80
-      ? "text-green-400"
+      ? "bg-[#A3E635]"
       : feedback.overallScore >= 60
-        ? "text-yellow-400"
-        : "text-red-400";
-
-  const scoreBg =
-    feedback.overallScore >= 80
-      ? "border-green-500/30 bg-green-500/10"
-      : feedback.overallScore >= 60
-        ? "border-yellow-500/30 bg-yellow-500/10"
-        : "border-red-500/30 bg-red-500/10";
+        ? "bg-[#FACC15]"
+        : "bg-[#EF4444]";
 
   return (
     <div className="mx-auto max-w-4xl space-y-6">
       {/* Header */}
       <div className="text-center">
-        <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-blue-500/20 bg-blue-500/10 px-5 py-2 text-sm text-blue-300 backdrop-blur-md">
+        <div className="mb-4 inline-flex items-center gap-2 border border-[#111111] bg-[#FACC15] px-5 py-2 text-sm text-[#111111]">
           <Award size={16} />
           Interview Complete
         </div>
 
-        <h2 className="text-3xl font-black md:text-4xl">
-          Your{" "}
-          <span className="bg-gradient-to-r from-blue-400 to-cyan-400 bg-clip-text text-transparent">
-            Interview Feedback
-          </span>
-        </h2>
+        <h2 className="text-3xl font-black md:text-4xl">Your Interview Feedback</h2>
 
-        <p className="mt-2 text-slate-400">
+        <p className="mt-2 text-[#666666]">
           {role} &middot; {interviewType} &middot; {difficulty}
         </p>
       </div>
 
       {/* Overall Score */}
-      <div className={`rounded-3xl border p-8 text-center backdrop-blur-xl ${scoreBg}`}>
+      <div className="hard-card border border-[#111111] bg-white p-8 text-center">
         <div className="mb-2 text-6xl font-black tracking-tight">
-          <span className={scoreColor}>{feedback.overallScore}</span>
-          <span className="text-3xl text-slate-500">/100</span>
+          <span>{feedback.overallScore}</span>
+          <span className="text-3xl text-[#666666]">/100</span>
         </div>
-        <p className="text-lg text-slate-400">
+        <div className="mx-auto mt-5 h-4 max-w-xl border border-[#111111] bg-[#FAF9F6] p-0.5 text-left">
+          <div
+            className={`h-full ${scoreColor}`}
+            style={{ width: `${Math.max(0, Math.min(100, feedback.overallScore))}%` }}
+          />
+        </div>
+        <p className="mt-5 text-lg text-[#666666]">
           {feedback.overallScore >= 80
             ? "Excellent performance!"
             : feedback.overallScore >= 60
               ? "Good effort! Keep practicing."
               : "Keep practicing, you'll improve!"}
         </p>
-        <p className="mt-1 text-sm text-slate-500">
+        <p className="mt-1 text-sm text-[#666666]">
           {feedback.answeredQuestions} of {feedback.totalQuestions} questions answered
         </p>
       </div>
