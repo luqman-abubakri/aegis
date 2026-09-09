@@ -70,7 +70,6 @@ button:active {
 }
 
 .hero-icon {
-  opacity: 0.12;
   animation: hero-icon-drift 8s ease-in-out infinite alternate;
 }
 
