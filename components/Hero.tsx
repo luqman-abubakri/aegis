@@ -62,7 +62,7 @@ const Hero = () => {
         {productIcons.map(({ Icon, label, position }) => (
           <div
             key={label}
-            className={`hero-icon absolute ${position}`}
+            className={`hero-icon absolute max-sm:opacity-100 ${position}`}
             title={label}
           >
             <Icon size={46} strokeWidth={1.5} />
