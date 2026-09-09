@@ -1147,7 +1147,7 @@ export default function ProfilePage() {
 
                         <div className="flex flex-wrap items-center gap-3">
 
-                          <span className="text-lg font-semibold text-white">
+                          <span className="text-lg font-semibold text-black">
                             {item.role}
                           </span>
 

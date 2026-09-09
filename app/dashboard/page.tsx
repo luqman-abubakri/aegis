@@ -658,7 +658,7 @@ export default function DashboardPage() {
                         {/* Interview information */}
                         <div className="min-w-0 flex-1">
                           <div className="flex flex-wrap items-center gap-3">
-                            <span className="text-lg font-semibold text-white">
+                            <span className="text-lg font-semibold text-black">
                               {item.role}
                             </span>
 
