@@ -488,7 +488,7 @@ export default function ResumePage() {
   if (authLoading) {
     return (
       <ProtectedRoute>
-        <div className="flex min-h-screen items-center justify-center bg-[#020817]">
+        <div className="flex min-h-screen items-center justify-center bg-[#FAF9F6]">
           <LoadingSpinner
             size="lg"
             text="Loading resume page..."
@@ -500,12 +500,12 @@ export default function ResumePage() {
 
   return (
     <ProtectedRoute>
-      <main className="min-h-screen overflow-x-hidden bg-[#020817] pb-20 pt-28 text-white">
+      <main className="min-h-screen overflow-x-hidden bg-[#FAF9F6] pb-20 pt-28 text-[#111111]">
         <div className="mx-auto max-w-4xl px-5 sm:px-6 lg:px-8">
           {/* Back */}
           <Link
             href="/dashboard"
-            className="mb-8 inline-flex items-center gap-2 text-sm text-slate-400 transition-colors hover:text-white"
+            className="mb-8 inline-flex items-center gap-2 text-sm text-[#666666] transition-colors hover:text-[#111111]"
           >
             <ArrowLeft size={16} />
             Back to Dashboard
@@ -513,19 +513,19 @@ export default function ResumePage() {
 
           {/* Header */}
           <div className="mb-10 text-center">
-            <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-violet-500/20 bg-violet-500/10 px-5 py-2 text-sm text-violet-300 backdrop-blur-md">
+            <div className="mb-6 inline-flex items-center gap-2 border border-orange-200 bg-orange-50 px-5 py-2 text-sm text-[#F97316]">
               <FileText size={16} />
               Resume Analysis
             </div>
 
             <h1 className="text-3xl font-black sm:text-4xl md:text-5xl">
               Upload Your{" "}
-              <span className="bg-gradient-to-r from-violet-400 to-fuchsia-400 bg-clip-text text-transparent">
+              <span className="text-[#F97316]">
                 Resume
               </span>
             </h1>
 
-            <p className="mt-4 text-lg text-slate-400">
+            <p className="mt-4 text-lg text-[#666666]">
               Upload your PDF resume and we will store it
               securely for analysis.
             </p>
@@ -560,8 +560,8 @@ export default function ResumePage() {
             onDragLeave={handleDragLeave}
             className={`mb-10 rounded-3xl border-2 border-dashed p-6 text-center transition-all duration-300 sm:p-8 lg:p-12 ${
               dragActive
-                ? "border-violet-500 bg-violet-500/10"
-                : "border-slate-700 bg-slate-900/60 hover:border-violet-500/50"
+                ? "border-[#F97316] bg-orange-50"
+                : "border-[#F97316] bg-white hover:border-[#EA580C]"
             }`}
           >
             <input
@@ -577,23 +577,23 @@ export default function ResumePage() {
               <div className="flex flex-col items-center gap-4">
                 <Loader2
                   size={48}
-                  className="animate-spin text-violet-400"
+                  className="animate-spin text-[#F97316]"
                 />
 
                 <p className="text-lg font-semibold text-white">
                   Uploading...
                 </p>
 
-                <div className="h-2 w-full max-w-xs overflow-hidden rounded-full bg-slate-800">
+                <div className="h-2 w-full max-w-xs overflow-hidden rounded-full bg-[#D9D9D4]">
                   <div
-                    className="h-full rounded-full bg-gradient-to-r from-violet-500 to-fuchsia-500 transition-all duration-300"
+                    className="h-full rounded-full bg-[#F97316] transition-all duration-300"
                     style={{
                       width: `${uploadProgress}%`,
                     }}
                   />
                 </div>
 
-                <p className="text-sm text-slate-400">
+                <p className="text-sm text-[#666666]">
                   {uploadProgress}%
                 </p>
               </div>
@@ -601,32 +601,32 @@ export default function ResumePage() {
               <div className="flex flex-col items-center gap-4">
                 <Loader2
                   size={48}
-                  className="animate-spin text-violet-400"
+                  className="animate-spin text-[#F97316]"
                 />
 
                 <p className="text-lg font-semibold text-white">
                   Analyzing Resume...
                 </p>
 
-                <div className="h-2 w-full max-w-xs overflow-hidden rounded-full bg-slate-800">
+                <div className="h-2 w-full max-w-xs overflow-hidden rounded-full bg-[#D9D9D4]">
                   <div
-                    className="h-full rounded-full bg-gradient-to-r from-violet-500 via-fuchsia-500 to-cyan-500 transition-all duration-300"
+                    className="h-full rounded-full bg-[#F97316] transition-all duration-300"
                     style={{
                       width: `${analysisProgress}%`,
                     }}
                   />
                 </div>
 
-                <p className="text-sm text-slate-400">
+                <p className="text-sm text-[#666666]">
                   {analysisStatus}
                 </p>
               </div>
             ) : (
               <div className="flex flex-col items-center gap-4">
-                <div className="flex h-20 w-20 items-center justify-center rounded-2xl bg-gradient-to-br from-violet-600 to-fuchsia-500 shadow-lg shadow-violet-600/20">
+                <div className="flex h-20 w-20 items-center justify-center text-[#F97316]">
                   <UploadCloud
                     size={40}
-                    className="text-white"
+                    className="text-[#F97316]"
                   />
                 </div>
 
@@ -645,13 +645,13 @@ export default function ResumePage() {
                   onClick={() =>
                     fileInputRef.current?.click()
                   }
-                  className="mt-2 inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-violet-600 to-fuchsia-500 px-6 py-3 font-semibold text-white transition-all duration-300 hover:scale-105 hover:shadow-lg hover:shadow-violet-500/20"
+                  className="hard-edge mt-2 inline-flex items-center gap-2 bg-[#F97316] px-6 py-3 font-semibold text-white hover:bg-[#EA580C]"
                 >
                   <UploadCloud size={18} />
                   Select PDF File
                 </button>
 
-                <p className="text-xs text-slate-500">
+                <p className="text-xs text-[#888888]">
                   PDF only · Max 5MB
                 </p>
               </div>
@@ -660,34 +660,34 @@ export default function ResumePage() {
 
           {/* Analysis Pipeline */}
           {activeResumeId && (
-            <div className="mb-8 min-w-0 overflow-hidden rounded-3xl border border-slate-800 bg-slate-900/70 p-6 shadow-lg shadow-slate-950/20 backdrop-blur-xl">
+            <div className="mb-8 min-w-0 overflow-hidden border border-[#D9D9D4] bg-white p-6 hard-card">
               <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
                 <div className="min-w-0">
-                  <p className="text-sm font-semibold text-violet-300">
+                  <p className="text-sm font-semibold text-[#F97316]">
                     Resume Analysis Pipeline
                   </p>
 
-                  <p className="text-sm text-slate-400">
+                  <p className="text-sm text-[#666666]">
                     Uploading, extracting text, analyzing,
                     and generating your interview.
                   </p>
                 </div>
 
-                <div className="rounded-full border border-violet-500/20 bg-violet-500/10 px-3 py-1 text-xs font-medium text-violet-300">
+                <div className="border border-orange-200 bg-orange-50 px-3 py-1 text-xs font-medium text-[#F97316]">
                   {analysisStatus}
                 </div>
               </div>
 
-              <div className="h-2 overflow-hidden rounded-full bg-slate-800">
+              <div className="h-2 overflow-hidden rounded-full bg-[#D9D9D4]">
                 <div
-                  className="h-full rounded-full bg-gradient-to-r from-violet-500 via-fuchsia-500 to-cyan-500 transition-all duration-300"
+                    className="h-full rounded-full bg-[#F97316] transition-all duration-300"
                   style={{
                     width: `${analysisProgress}%`,
                   }}
                 />
               </div>
 
-              <div className="mt-4 grid gap-3 text-sm text-slate-400 md:grid-cols-5">
+              <div className="mt-4 grid gap-3 text-sm text-[#666666] md:grid-cols-5">
                 {[
                   "Uploading Resume...",
                   "Extracting Text...",
@@ -704,8 +704,8 @@ export default function ResumePage() {
                       key={step}
                       className={`rounded-2xl border px-3 py-2 ${
                         isComplete
-                          ? "border-violet-500/30 bg-violet-500/10 text-violet-200"
-                          : "border-slate-800 bg-slate-950/70 text-slate-400"
+                          ? "border-orange-200 bg-orange-50 text-[#F97316]"
+                          : "border-[#D9D9D4] bg-[#F1F1EE] text-[#666666]"
                       }`}
                     >
                       {step}
@@ -717,20 +717,20 @@ export default function ResumePage() {
           )}
 
           {/* Uploaded Resumes */}
-          <div className="rounded-3xl border border-slate-800 bg-slate-900/60 p-6 backdrop-blur-xl sm:p-8">
+          <div className="border border-[#D9D9D4] bg-white p-6 hard-card sm:p-8">
             <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div>
                 <h2 className="text-xl font-bold">
                   Uploaded Resumes
                 </h2>
 
-                <p className="text-sm text-slate-400">
+                <p className="text-sm text-[#666666]">
                   Review your resumes and launch a tailored
                   interview instantly.
                 </p>
               </div>
 
-              <div className="rounded-full border border-slate-700 bg-slate-800/70 px-3 py-1 text-sm text-slate-400">
+              <div className="border border-[#D9D9D4] bg-[#F1F1EE] px-3 py-1 text-sm text-[#666666]">
                 {resumes.length} uploaded
               </div>
             </div>
@@ -742,11 +742,11 @@ export default function ResumePage() {
                   className="mb-4 text-slate-600"
                 />
 
-                <p className="text-lg text-slate-400">
+                <p className="text-lg text-[#666666]">
                   No resumes uploaded yet
                 </p>
 
-                <p className="mt-2 text-sm text-slate-500">
+                <p className="mt-2 text-sm text-[#888888]">
                   Upload your first resume to get started
                 </p>
               </div>
@@ -766,14 +766,14 @@ export default function ResumePage() {
                       className="space-y-2"
                     >
                       {/* Resume Card */}
-                      <div className="flex flex-col gap-4 rounded-2xl border border-slate-800 bg-slate-800/40 p-4 sm:flex-row sm:items-center sm:justify-between">
+                      <div className="flex flex-col gap-4 border border-[#D9D9D4] bg-[#F1F1EE] p-4 sm:flex-row sm:items-center sm:justify-between">
                         <div className="flex min-w-0 items-start gap-4">
-                          <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-xl bg-violet-500/10 text-violet-400">
+                          <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-xl bg-orange-50 text-[#F97316]">
                             <FileCheck2 size={24} />
                           </div>
 
                           <div className="min-w-0 flex-1">
-                            <p className="break-words font-semibold text-white">
+                            <p className="break-words font-semibold text-[#111111]">
                               {resume.fileName ||
                                 "Untitled"}
                             </p>
@@ -816,7 +816,7 @@ export default function ResumePage() {
 
                                 {analysis?.generatedInterview
                                   ?.questions?.length ? (
-                                  <span className="rounded-full border border-violet-500/20 bg-violet-500/10 px-2.5 py-1 text-violet-300">
+                                  <span className="rounded-full border border-orange-200 bg-orange-50 px-2.5 py-1 text-[#F97316]">
                                     {
                                       analysis
                                         .generatedInterview
@@ -846,7 +846,7 @@ export default function ResumePage() {
                                 deleting ||
                                 uploading
                               }
-                              className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-violet-500/20 bg-violet-500/10 px-4 py-2 text-sm font-semibold text-violet-200 transition-all duration-300 hover:bg-violet-500/20 disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"
+                              className="hard-edge inline-flex w-full items-center justify-center gap-2 border border-orange-200 bg-orange-50 px-4 py-2 text-sm font-semibold text-[#F97316] transition-all hover:bg-orange-100 disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"
                             >
                               <PlayCircle size={16} />
                               Resume Interview
@@ -864,7 +864,7 @@ export default function ResumePage() {
                                 deleting ||
                                 uploading
                               }
-                              className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-slate-700 bg-slate-800/70 px-4 py-2 text-sm font-semibold text-slate-200 transition-all duration-300 hover:border-violet-500/50 disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"
+                              className="hard-edge inline-flex w-full items-center justify-center gap-2 border border-orange-200 bg-orange-50 px-4 py-2 text-sm font-semibold text-[#F97316] transition-all hover:bg-orange-100 disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"
                             >
                               {analyzing &&
                               activeResumeId ===
@@ -931,11 +931,11 @@ export default function ResumePage() {
 
                       {/* Expanded Analysis */}
                       {hasAnalysis && isExpanded && (
-                        <div className="mt-2 rounded-2xl border border-slate-800 bg-slate-900/50 p-6 text-sm text-slate-300 shadow-inner">
+                                    <div className="mt-2 border border-[#D9D9D4] bg-[#F1F1EE] p-6 text-sm text-[#111111] shadow-inner">
                           {/* Profile + Skills */}
                           <div className="grid gap-6 md:grid-cols-2">
                             <div>
-                              <h3 className="mb-2 text-lg font-bold text-violet-300">
+                              <h3 className="mb-2 text-lg font-bold text-[#F97316]">
                                 Profile
                               </h3>
 
@@ -1124,7 +1124,7 @@ export default function ResumePage() {
                             analysis.education.length >
                               0 && (
                               <div className="mt-6">
-                                <h3 className="mb-3 text-lg font-bold text-fuchsia-300">
+                                <h3 className="mb-3 text-lg font-bold text-[#F97316]">
                                   Education
                                 </h3>
 

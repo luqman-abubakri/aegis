@@ -55,8 +55,8 @@ const COACHING_SPEAK_DELAY_MS = 2600;
 
 function LoadingFallback() {
   return (
-    <div className="flex min-h-screen items-center justify-center bg-[#020817]">
-      <Loader2 size={40} className="animate-spin text-blue-400" />
+    <div className="flex min-h-screen items-center justify-center bg-[#FAF9F6]">
+      <Loader2 size={40} className="animate-spin text-[#F97316]" />
     </div>
   );
 }
@@ -441,17 +441,17 @@ const currentGraphIndex = interview.state.currentQuestionIndex;
   if (interview.state.status === "completed" && interview.state.feedback) {
     return (
       <ProtectedRoute>
-        <main className="min-h-screen overflow-x-hidden bg-[#020817] px-4 pb-20 pt-28 text-white sm:px-6">
+        <main className="min-h-screen overflow-x-hidden bg-[#FAF9F6] px-4 pb-20 pt-28 text-[#111111] sm:px-6">
           <div className="mx-auto max-w-5xl">
             <button
               onClick={() => router.push("/interview")}
-              className="mb-8 inline-flex items-center gap-2 text-sm text-slate-400 transition-colors hover:text-white"
+              className="mb-8 inline-flex items-center gap-2 text-sm text-[#666666] transition-colors hover:text-[#111111]"
             >
               <ArrowLeft size={16} />
               Back to Interviews
             </button>
             {saving && (
-              <div className="mb-6 flex items-center justify-center gap-2 text-sm text-slate-400">
+              <div className="mb-6 flex items-center justify-center gap-2 text-sm text-[#666666]">
                 <Loader2 size={16} className="animate-spin" />
                 Saving your interview...
               </div>
@@ -492,10 +492,10 @@ const currentGraphIndex = interview.state.currentQuestionIndex;
   if (interview.state.status === "idle" || interview.state.status === "setup") {
     return (
       <ProtectedRoute>
-        <main className="min-h-screen overflow-x-hidden bg-[#020817] px-4 pb-20 pt-28 text-white sm:px-6">
+        <main className="min-h-screen overflow-x-hidden bg-[#FAF9F6] px-4 pb-20 pt-28 text-[#111111] sm:px-6">
           <button
             onClick={() => router.push("/interview")}
-            className="mx-auto mb-8 flex max-w-5xl items-center gap-2 px-1 text-sm text-slate-400 transition-colors hover:text-white"
+            className="mx-auto mb-8 flex max-w-5xl items-center gap-2 px-1 text-sm text-[#666666] transition-colors hover:text-[#111111]"
           >
             <ArrowLeft size={16} />
             Back to Setup
@@ -508,10 +508,10 @@ const currentGraphIndex = interview.state.currentQuestionIndex;
 
   return (
     <ProtectedRoute>
-      <main className="min-h-screen overflow-x-hidden bg-[#020817] px-3 pb-20 pt-24 text-white sm:px-5 lg:px-6">
+      <main className="min-h-screen overflow-x-hidden bg-[#FAF9F6] px-3 pb-20 pt-24 text-[#111111] sm:px-5 lg:px-6">
         <div className="mx-auto flex min-h-[calc(100vh-8rem)] w-full max-w-7xl flex-col">
           {isFinishing && finishStage && (
-            <div className="mb-4 flex items-center gap-3 rounded-xl border border-blue-500/30 bg-blue-500/10 p-3 text-sm text-blue-300">
+            <div className="mb-4 flex items-center gap-3 border border-yellow-200 bg-yellow-50 p-3 text-sm text-yellow-700">
               <Loader2 size={18} className="animate-spin" />
               <span>{FINISH_STAGE_LABELS[finishStage] ?? "Completing interview..."}</span>
             </div>
@@ -531,39 +531,39 @@ const currentGraphIndex = interview.state.currentQuestionIndex;
               </button>
             </div>
           )}
-          <div className="mb-4 flex flex-col gap-3 rounded-2xl border border-slate-800 bg-slate-900/70 p-4 shadow-lg shadow-slate-950/20 backdrop-blur-xl lg:flex-row lg:items-center lg:justify-between">
+          <div className="mb-4 flex flex-col gap-3 border border-[#D9D9D4] bg-white p-4 hard-card lg:flex-row lg:items-center lg:justify-between">
             <div className="flex min-w-0 items-center gap-3">
-              <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-blue-500 to-cyan-500">
+              <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center bg-[#F97316] text-white">
                 <Bot size={22} className="text-white" />
               </div>
               <div className="min-w-0">
                 <p className="truncate text-sm font-semibold text-white">AI Interviewer</p>
-                <p className="truncate text-xs text-slate-400">
+                <p className="truncate text-xs text-[#666666]">
                   {interview.state.config?.role} • {interview.state.config?.interviewType} • {interview.state.config?.difficulty}
                 </p>
               </div>
             </div>
             <div className="flex flex-wrap items-center gap-3 sm:gap-4">
-              <div className="min-w-[180px] rounded-xl border border-slate-800 bg-slate-950/70 px-3 py-2">
-                <div className="mb-1 flex items-center justify-between text-[11px] uppercase tracking-[0.2em] text-slate-500">
+              <div className="min-w-[180px] border border-[#D9D9D4] bg-[#F1F1EE] px-3 py-2">
+                <div className="mb-1 flex items-center justify-between text-[11px] uppercase tracking-[0.2em] text-[#888888]">
                   <span>Time left</span>
                   <span>{formatTime(timeRemaining)}</span>
                 </div>
-                <div className="h-2 overflow-hidden rounded-full bg-slate-800">
+                <div className="h-2 overflow-hidden rounded-full bg-[#D9D9D4]">
                   <div
-                    className="h-full rounded-full bg-gradient-to-r from-cyan-500 to-blue-500 transition-all duration-500"
+                    className="h-full rounded-full bg-[#F97316] transition-all duration-500"
                     style={{ width: `${Math.max(0, timerPercent)}%` }}
                   />
                 </div>
               </div>
-              <div className="min-w-[160px] rounded-xl border border-slate-800 bg-slate-950/70 px-3 py-2">
-<div className="mb-1 flex items-center justify-between text-[11px] uppercase tracking-[0.2em] text-slate-500">
+              <div className="min-w-[160px] border border-[#D9D9D4] bg-[#F1F1EE] px-3 py-2">
+<div className="mb-1 flex items-center justify-between text-[11px] uppercase tracking-[0.2em] text-[#888888]">
                   <span>Question</span>
                   <span>{currentGraphIndex + 1}/{MAX_QUESTIONS}</span>
                 </div>
-                <div className="h-2 overflow-hidden rounded-full bg-slate-800">
+                <div className="h-2 overflow-hidden rounded-full bg-[#D9D9D4]">
                   <div
-                    className="h-full rounded-full bg-gradient-to-r from-blue-500 to-cyan-500 transition-all duration-500"
+                    className="h-full rounded-full bg-[#FACC15] transition-all duration-500"
                     style={{ width: `${Math.max(0, progressValue)}%` }}
                   />
                 </div>
@@ -572,7 +572,7 @@ const currentGraphIndex = interview.state.currentQuestionIndex;
                 onClick={() => void interview.advanceQuestion()}
                 disabled={isFinishing || interview.isAdvancing || interview.loading}
                 title="Skip current question or move to the next question"
-                className="inline-flex items-center gap-2 rounded-xl border border-blue-500/30 bg-blue-500/10 px-4 py-2 text-sm font-semibold text-blue-300 transition-all duration-300 hover:bg-blue-500/20 disabled:cursor-not-allowed disabled:opacity-50"
+                className="hard-edge inline-flex items-center gap-2 border border-[#F97316] bg-orange-50 px-4 py-2 text-sm font-semibold text-[#EA580C] hover:bg-orange-100 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {interview.isAdvancing || interview.loading ? (
                   <Loader2 size={16} className="animate-spin" />
@@ -601,15 +601,15 @@ const currentGraphIndex = interview.state.currentQuestionIndex;
           {vapiErrorMsg && (
             <div className="mb-4 flex items-center gap-3 rounded-xl border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-400">
               <AlertTriangle size={18} className="flex-shrink-0" />
-              <span>Voice Error: {vapiErrorMsg}</span>
+              <span>Something went wrong. Please try again.</span>
             </div>
           )}
 
           <div className="flex flex-1 flex-col gap-4 lg:flex-row lg:overflow-hidden">
             {voiceMode && (
               <aside className="w-full shrink-0 lg:w-80">
-                <div className="h-full rounded-2xl border border-slate-800 bg-slate-900/70 p-4 shadow-lg shadow-slate-950/20 backdrop-blur-xl">
-                  <h3 className="mb-4 text-sm font-semibold text-slate-300">Voice Controls</h3>
+                <div className="h-full border border-[#D9D9D4] bg-white p-4 hard-card">
+                  <h3 className="mb-4 text-sm font-semibold text-[#111111]">Voice Controls</h3>
                   <VoiceControls
                     callStatus={vapi.callStatus}
                     onStartCall={handleVoiceStartCall}
@@ -619,9 +619,9 @@ const currentGraphIndex = interview.state.currentQuestionIndex;
                   />
                   {vapi.callStatus.transcript && (
                     <div className="mt-4">
-                      <p className="mb-2 text-xs font-medium uppercase tracking-[0.2em] text-slate-500">Live Transcript</p>
-                      <div className="max-h-48 overflow-y-auto rounded-xl bg-slate-800/50 p-3">
-                        <p className="whitespace-pre-wrap break-words text-sm text-slate-400">{vapi.callStatus.transcript}</p>
+                      <p className="mb-2 text-xs font-medium uppercase tracking-[0.2em] text-[#888888]">Live Transcript</p>
+                      <div className="max-h-48 overflow-y-auto bg-[#F1F1EE] p-3">
+                        <p className="whitespace-pre-wrap break-words text-sm text-[#666666]">{vapi.callStatus.transcript}</p>
                       </div>
                     </div>
                   )}
@@ -630,7 +630,7 @@ const currentGraphIndex = interview.state.currentQuestionIndex;
             )}
 
             {!voiceMode && (
-              <div className="flex min-w-0 flex-1 flex-col overflow-hidden rounded-2xl border border-slate-800 bg-slate-900/70 shadow-lg shadow-slate-950/20 backdrop-blur-xl">
+              <div className="flex min-w-0 flex-1 flex-col overflow-hidden border border-[#D9D9D4] bg-white hard-card">
                 <InterviewChat
                   currentQuestion={interview.state.currentQuestion}
                   onSubmitAnswer={handleSubmitAnswer}
@@ -643,27 +643,27 @@ const currentGraphIndex = interview.state.currentQuestionIndex;
             )}
 
             {voiceMode && (
-              <section className="flex min-w-0 flex-1 flex-col rounded-2xl border border-slate-800 bg-slate-900/70 p-4 shadow-lg shadow-slate-950/20 backdrop-blur-xl sm:p-6">
+              <section className="flex min-w-0 flex-1 flex-col border border-[#D9D9D4] bg-white p-4 hard-card sm:p-6">
                 {interview.state.currentQuestion ? (
                   <div className="flex flex-1 flex-col">
-                    <div className="rounded-2xl border border-blue-500/20 bg-blue-500/10 p-4 sm:p-5">
-                      <p className="mb-2 text-xs font-medium uppercase tracking-[0.2em] text-blue-400">Current Question</p>
-                      <h2 className="text-lg font-semibold leading-relaxed text-white break-words sm:text-xl">
+                    <div className="border border-orange-200 bg-orange-50 p-4 sm:p-5">
+                      <p className="mb-2 text-xs font-medium uppercase tracking-[0.2em] text-[#F97316]">Current Question</p>
+                      <h2 className="text-lg font-semibold leading-relaxed text-[#111111] break-words sm:text-xl">
                         {interview.state.currentQuestion.question}
                       </h2>
                     </div>
-                    <div className="mt-4 rounded-2xl border border-slate-800 bg-slate-950/40 p-4 text-sm text-slate-400">
-                      <p className="font-medium text-slate-300">Voice guidance</p>
+                    <div className="mt-4 border border-[#D9D9D4] bg-[#F5F4F0] p-4 text-sm text-[#666666]">
+                      <p className="font-medium text-[#111111]">Voice guidance</p>
                       <p className="mt-2 leading-relaxed">
                         Speak clearly and answer at a steady pace. Your transcript will appear here as you respond.
                       </p>
                     </div>
                     {interview.state.transcript.length > 0 && (
-                      <div className="mt-4 flex-1 overflow-hidden rounded-2xl border border-slate-800 bg-slate-950/40 p-4">
-                        <p className="mb-3 text-xs font-medium uppercase tracking-[0.2em] text-slate-500">Conversation History</p>
+                      <div className="mt-4 flex-1 overflow-hidden border border-[#D9D9D4] bg-[#F5F4F0] p-4">
+                        <p className="mb-3 text-xs font-medium uppercase tracking-[0.2em] text-[#888888]">Conversation History</p>
                         <div className="max-h-[320px] space-y-2 overflow-y-auto pr-1">
                           {interview.state.transcript.map((entry: string, index: number) => (
-                            <p key={`${entry}-${index}`} className="rounded-lg bg-slate-800/60 p-3 text-sm text-slate-400 break-words">
+                            <p key={`${entry}-${index}`} className="bg-white p-3 text-sm text-[#666666] break-words">
                               {entry}
                             </p>
                           ))}
@@ -674,8 +674,8 @@ const currentGraphIndex = interview.state.currentQuestionIndex;
                 ) : (
                   <div className="flex flex-1 items-center justify-center py-12">
                     <div className="text-center">
-                      <Loader2 size={36} className="mx-auto animate-spin text-blue-400" />
-                      <p className="mt-4 text-slate-400">
+                      <Loader2 size={36} className="mx-auto animate-spin text-[#F97316]" />
+                      <p className="mt-4 text-[#666666]">
                         {vapi.callStatus.status === "connected"
                           ? "Generating question..."
                           : "Start the voice call to begin"}

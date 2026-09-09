@@ -12,7 +12,7 @@ export default async function Icon() {
 
   return new ImageResponse(
     (
-      <div style={{ alignItems: "center", background: "#020817", display: "flex", height: "100%", justifyContent: "center", width: "100%" }}>
+      <div style={{ alignItems: "center", background: "#FAF9F6", display: "flex", height: "100%", justifyContent: "center", width: "100%" }}>
         <img alt="Intervyou.ai" src={logoDataUri} style={{ height: "54px", width: "54px" }} />
       </div>
     ),

@@ -286,7 +286,7 @@ export default function FeaturesPage() {
   return (
     <main className="min-h-screen overflow-x-hidden bg-[#FAF9F6] text-[#111111]">
       {/* Hero */}
-      <section className="mx-auto flex max-w-7xl flex-col items-center px-5 pt-20 pb-8 text-center sm:px-6 sm:pt-24 sm:pb-10 md:pt-28 lg:pt-36">
+      <section className="mx-auto flex max-w-7xl flex-col items-center px-5 pt-8 pb-8 text-center sm:px-6 sm:pt-12 sm:pb-10 md:pt-16 lg:pt-20">
         <motion.h1
           initial={{
             opacity: 0,

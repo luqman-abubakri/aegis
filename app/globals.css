@@ -54,21 +54,6 @@ body {
   box-shadow: 2px 2px 0 #111111;
 }
 
-button {
-  box-shadow: 4px 4px 0 #111111;
-  transition: transform 180ms ease-out, box-shadow 180ms ease-out;
-}
-
-button:hover {
-  transform: translate(-2px, -2px);
-  box-shadow: 5px 5px 0 #111111;
-}
-
-button:active {
-  transform: translate(1px, 1px);
-  box-shadow: 2px 2px 0 #111111;
-}
-
 .hero-icon {
   animation: hero-icon-drift 8s ease-in-out infinite alternate;
 }
@@ -147,7 +132,6 @@ button:active {
   color: white;
 }
 
-button,
 a,
 input,
 textarea,

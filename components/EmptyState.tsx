@@ -20,16 +20,16 @@ export function EmptyState({
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      className="flex flex-col items-center justify-center rounded-3xl border border-slate-800 bg-slate-900/60 p-12 text-center backdrop-blur-xl"
+      className="flex flex-col items-center justify-center border border-[#D9D9D4] bg-white p-12 text-center hard-card"
     >
-      <div className="mb-6 flex h-20 w-20 items-center justify-center rounded-2xl bg-slate-800/50 text-slate-500">
+      <div className="mb-6 flex h-20 w-20 items-center justify-center border border-[#D9D9D4] bg-[#F1F1EE] text-[#888888]">
         {icon || <Inbox size={36} />}
       </div>
 
-      <h3 className="text-xl font-bold text-white">{title}</h3>
+      <h3 className="text-xl font-bold text-[#111111]">{title}</h3>
 
       {description && (
-        <p className="mt-3 max-w-md text-slate-400">{description}</p>
+        <p className="mt-3 max-w-md text-[#666666]">{description}</p>
       )}
 
       {action && <div className="mt-6">{action}</div>}

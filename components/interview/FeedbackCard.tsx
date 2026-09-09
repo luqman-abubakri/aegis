@@ -67,17 +67,17 @@ export function FeedbackCard({
       </div>
 
       {/* Summary */}
-      <div className="rounded-3xl border border-slate-800 bg-slate-900/60 p-6 backdrop-blur-xl">
+      <div className="border border-[#D9D9D4] bg-white p-6 hard-card">
         <div className="mb-4 flex items-center gap-2">
-          <TrendingUp size={20} className="text-blue-400" />
+          <TrendingUp size={20} className="text-[#A3E635]" />
           <h3 className="text-lg font-semibold">Summary</h3>
         </div>
-        <p className="leading-relaxed text-slate-300">{feedback.summary}</p>
+        <p className="leading-relaxed text-[#666666]">{feedback.summary}</p>
       </div>
 
       {/* Strengths */}
       {feedback.strengths.length > 0 && (
-        <div className="rounded-3xl border border-slate-800 bg-slate-900/60 p-6 backdrop-blur-xl">
+        <div className="border border-[#D9D9D4] bg-white p-6 hard-card">
           <div className="mb-4 flex items-center gap-2">
             <CheckCircle size={20} className="text-green-400" />
             <h3 className="text-lg font-semibold">Strengths</h3>
@@ -85,8 +85,8 @@ export function FeedbackCard({
           <ul className="space-y-3">
             {feedback.strengths.map((s, i) => (
               <li key={i} className="flex items-start gap-3">
-                <Lightbulb size={18} className="mt-0.5 flex-shrink-0 text-green-400" />
-                <span className="text-slate-300">{s}</span>
+                <Lightbulb size={18} className="mt-0.5 shrink-0 text-[#A3E635]" />
+                <span className="text-[#666666]">{s}</span>
               </li>
             ))}
           </ul>
@@ -95,7 +95,7 @@ export function FeedbackCard({
 
       {/* Areas for Improvement */}
       {feedback.areasForImprovement.length > 0 && (
-        <div className="rounded-3xl border border-slate-800 bg-slate-900/60 p-6 backdrop-blur-xl">
+        <div className="border border-[#D9D9D4] bg-white p-6 hard-card">
           <div className="mb-4 flex items-center gap-2">
             <AlertTriangle size={20} className="text-amber-400" />
             <h3 className="text-lg font-semibold">Areas for Improvement</h3>
@@ -103,8 +103,8 @@ export function FeedbackCard({
           <ul className="space-y-3">
             {feedback.areasForImprovement.map((a, i) => (
               <li key={i} className="flex items-start gap-3">
-                <XCircle size={18} className="mt-0.5 flex-shrink-0 text-amber-400" />
-                <span className="text-slate-300">{a}</span>
+                <XCircle size={18} className="mt-0.5 shrink-0 text-[#FACC15]" />
+                <span className="text-[#666666]">{a}</span>
               </li>
             ))}
           </ul>
@@ -113,20 +113,20 @@ export function FeedbackCard({
 
       {/* Per-Question Breakdown */}
       {feedback.questionEvaluations.length > 0 && (
-        <div className="rounded-3xl border border-slate-800 bg-slate-900/60 p-6 backdrop-blur-xl">
+        <div className="border border-[#D9D9D4] bg-white p-6 hard-card">
           <h3 className="mb-6 text-lg font-semibold">Question Breakdown</h3>
           <div className="space-y-4">
             {feedback.questionEvaluations.map((q, i) => (
               <div
                 key={i}
-                className="rounded-2xl border border-slate-700/50 bg-slate-800/40 overflow-hidden"
+                className="overflow-hidden border border-[#D9D9D4] bg-[#F1F1EE]"
               >
                 <button
                   onClick={() => setExpandedQ(expandedQ === i ? null : i)}
-                  className="flex w-full items-center justify-between p-4 text-left transition-colors hover:bg-slate-800/80"
+                  className="flex w-full items-center justify-between p-4 text-left transition-colors hover:bg-[#F1F1EE]"
                 >
                   <div className="flex-1">
-                    <p className="text-sm text-slate-500">Question {i + 1}</p>
+                    <p className="text-sm text-[#888888]">Question {i + 1}</p>
                     <p className="mt-1 text-sm font-medium text-white line-clamp-2">
                       {q.question}
                     </p>
@@ -144,7 +144,7 @@ export function FeedbackCard({
                       {q.score}
                     </span>
                     <svg
-                      className={`h-5 w-5 text-slate-400 transition-transform ${
+                      className={`h-5 w-5 text-[#888888] transition-transform ${
                         expandedQ === i ? "rotate-180" : ""
                       }`}
                       fill="none"
@@ -162,12 +162,12 @@ export function FeedbackCard({
                 </button>
 
                 {expandedQ === i && (
-                  <div className="border-t border-slate-700/50 p-4">
+                  <div className="border-t border-[#D9D9D4] p-4">
                     <div className="mb-3">
-                      <p className="mb-1 text-xs font-medium text-slate-500">
+                      <p className="mb-1 text-xs font-medium text-[#888888]">
                         Your Answer
                       </p>
-                      <p className="text-sm text-slate-300">{q.answer}</p>
+                      <p className="text-sm text-[#666666]">{q.answer}</p>
                     </div>
 
                     {q.strengths.length > 0 && (
@@ -198,10 +198,10 @@ export function FeedbackCard({
 
                     {q.modelAnswer && (
                       <div>
-                        <p className="mb-1 text-xs font-medium text-blue-400">
+                        <p className="mb-1 text-xs font-medium text-[#F97316]">
                           Model Answer
                         </p>
-                        <p className="text-sm text-slate-300">{q.modelAnswer}</p>
+                        <p className="text-sm text-[#666666]">{q.modelAnswer}</p>
                       </div>
                     )}
                   </div>

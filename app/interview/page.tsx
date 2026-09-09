@@ -79,7 +79,7 @@ export default function InterviewPage() {
 
   return (
     <ProtectedRoute>
-      <main className="min-h-screen bg-[#020817] pb-20 pt-28 text-white">
+      <main className="min-h-screen bg-[#FAF9F6] pb-20 pt-28 text-[#111111]">
         <InterviewSetup
           onStart={handleStart}
           initialRole={initialRole}

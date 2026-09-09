@@ -63,17 +63,15 @@ export default function SignInPage() {
   };
 
   return (
-    <main className="relative flex min-h-screen items-center justify-center overflow-hidden bg-[#020817] px-5 py-20 text-white">
+    <main className="relative flex min-h-screen items-center justify-center overflow-hidden bg-[#FAF9F6] px-5 py-20 text-[#111111]">
       {/* Background */}
       <div className="absolute inset-0 -z-10">
-        <div className="absolute left-1/2 top-0 h-[500px] w-[500px] -translate-x-1/2 rounded-full bg-blue-500/10 blur-[170px]" />
-
         <div
-          className="absolute inset-0 opacity-[0.08]"
+          className="absolute inset-0 opacity-[0.04]"
           style={{
             backgroundImage: `
-              linear-gradient(rgba(255,255,255,.08) 1px, transparent 1px),
-              linear-gradient(90deg, rgba(255,255,255,.08) 1px, transparent 1px)
+              linear-gradient(rgba(17,17,17,.08) 1px, transparent 1px),
+              linear-gradient(90deg, rgba(17,17,17,.08) 1px, transparent 1px)
             `,
             backgroundSize: "60px 60px",
           }}
@@ -84,7 +82,7 @@ export default function SignInPage() {
         initial={{ opacity: 0, y: 35 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.7 }}
-        className="w-full max-w-lg rounded-3xl border border-slate-800 bg-slate-900/70 p-8 shadow-2xl backdrop-blur-xl sm:p-10"
+        className="w-full max-w-lg border border-[#D9D9D4] bg-white p-8 hard-card sm:p-10"
       >
         {/* Logo */}
         <div className="mb-10 flex flex-col items-center">
@@ -94,7 +92,7 @@ export default function SignInPage() {
             Welcome Back
           </h1>
 
-          <p className="mt-2 text-center text-slate-400">
+          <p className="mt-2 text-center text-[#666666]">
             Sign in to continue your AI interview preparation journey.
           </p>
         </div>
@@ -104,7 +102,7 @@ export default function SignInPage() {
           <motion.div
             initial={{ opacity: 0, y: -10 }}
             animate={{ opacity: 1, y: 0 }}
-            className="mb-6 rounded-xl border border-red-500/20 bg-red-500/10 px-5 py-3 text-sm text-red-400"
+            className="mb-6 border border-red-200 bg-red-50 px-5 py-3 text-sm text-red-600"
           >
             {formError}
           </motion.div>
@@ -114,12 +112,12 @@ export default function SignInPage() {
         <form onSubmit={handleSubmit} className="space-y-6">
           {/* Email */}
           <div>
-            <label className="mb-2 block text-sm text-slate-300">
+            <label className="mb-2 block text-sm text-[#666666]">
               Email Address
             </label>
 
-            <div className="hard-edge flex items-center border border-slate-700 bg-slate-950 px-4 transition focus-within:border-blue-500">
-              <Mail className="text-slate-500" size={20} />
+            <div className="hard-edge flex items-center border border-[#D9D9D4] bg-white px-4 transition focus-within:border-[#F97316]">
+              <Mail className="text-[#888888]" size={20} />
 
               <input
                 type="email"
@@ -127,19 +125,19 @@ export default function SignInPage() {
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="you@example.com"
                 autoComplete="email"
-                className="w-full bg-transparent px-3 py-4 outline-none placeholder:text-slate-500"
+                className="w-full bg-transparent px-3 py-4 text-[#111111] outline-none placeholder:text-[#888888]"
               />
             </div>
           </div>
 
           {/* Password */}
           <div>
-            <label className="mb-2 block text-sm text-slate-300">
+            <label className="mb-2 block text-sm text-[#666666]">
               Password
             </label>
 
-            <div className="hard-edge flex items-center border border-slate-700 bg-slate-950 px-4 transition focus-within:border-blue-500">
-              <Lock className="text-slate-500" size={20} />
+            <div className="hard-edge flex items-center border border-[#D9D9D4] bg-white px-4 transition focus-within:border-[#F97316]">
+              <Lock className="text-[#888888]" size={20} />
 
               <input
                 type={showPassword ? "text" : "password"}
@@ -147,13 +145,13 @@ export default function SignInPage() {
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="••••••••"
                 autoComplete="current-password"
-                className="w-full bg-transparent px-3 py-4 outline-none placeholder:text-slate-500"
+                className="w-full bg-transparent px-3 py-4 text-[#111111] outline-none placeholder:text-[#888888]"
               />
 
               <button
                 type="button"
                 onClick={() => setShowPassword(!showPassword)}
-                className="text-slate-500 transition hover:text-white"
+                className="text-[#888888] transition hover:text-[#111111]"
                 aria-label={
                   showPassword ? "Hide password" : "Show password"
                 }
@@ -169,10 +167,10 @@ export default function SignInPage() {
 
           {/* Remember Me */}
           <div className="flex items-center justify-between">
-            <label className="flex cursor-pointer items-center gap-3 text-sm text-slate-400">
+            <label className="flex cursor-pointer items-center gap-3 text-sm text-[#666666]">
               <input
                 type="checkbox"
-                className="h-4 w-4 rounded accent-blue-600"
+                className="h-4 w-4 rounded accent-[#F97316]"
               />
               Remember Me
             </label>
@@ -200,17 +198,17 @@ export default function SignInPage() {
 
         {/* Divider */}
         <div className="my-8 flex items-center gap-4">
-          <div className="h-px flex-1 bg-slate-800" />
-          <span className="text-sm text-slate-500">OR</span>
-          <div className="h-px flex-1 bg-slate-800" />
+          <div className="h-px flex-1 bg-[#D9D9D4]" />
+          <span className="text-sm text-[#888888]">OR</span>
+          <div className="h-px flex-1 bg-[#D9D9D4]" />
         </div>
 
         {/* Footer */}
-        <div className="mt-8 text-center text-sm text-slate-400">
+        <div className="mt-8 text-center text-sm text-[#666666]">
           Don&apos;t have an account?{" "}
           <Link
             href="/sign-up"
-            className="font-semibold text-blue-400 transition hover:text-cyan-400"
+            className="font-semibold text-[#F97316] transition hover:text-[#EA580C]"
           >
             Create Account
           </Link>

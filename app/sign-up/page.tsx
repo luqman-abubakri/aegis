@@ -132,9 +132,9 @@ export default function SignUpPage() {
               Full Name
             </label>
 
-            <div className="hard-edge flex items-center border border-slate-700 bg-slate-950 px-4 transition focus-within:border-blue-500">
+            <div className="hard-edge flex items-center border border-[#D9D9D4] bg-white px-4 transition focus-within:border-[#F97316]">
               <User
-                className="shrink-0 text-slate-500"
+                className="shrink-0 text-[#888888]"
                 size={20}
               />
 
@@ -147,7 +147,7 @@ export default function SignUpPage() {
                 }}
                 placeholder="John Doe"
                 autoComplete="name"
-                className="w-full bg-transparent px-3 py-4 outline-none placeholder:text-slate-500"
+                className="w-full bg-transparent px-3 py-4 text-[#111111] outline-none placeholder:text-[#888888]"
               />
             </div>
           </div>
@@ -158,9 +158,9 @@ export default function SignUpPage() {
               Email Address
             </label>
 
-            <div className="hard-edge flex items-center border border-slate-700 bg-slate-950 px-4 transition focus-within:border-blue-500">
+            <div className="hard-edge flex items-center border border-[#D9D9D4] bg-white px-4 transition focus-within:border-[#F97316]">
               <Mail
-                className="shrink-0 text-slate-500"
+                className="shrink-0 text-[#888888]"
                 size={20}
               />
 
@@ -173,7 +173,7 @@ export default function SignUpPage() {
                 }}
                 placeholder="you@example.com"
                 autoComplete="email"
-                className="w-full bg-transparent px-3 py-4 outline-none placeholder:text-slate-500"
+                className="w-full bg-transparent px-3 py-4 text-[#111111] outline-none placeholder:text-[#888888]"
               />
             </div>
           </div>
@@ -184,9 +184,9 @@ export default function SignUpPage() {
               Password
             </label>
 
-            <div className="hard-edge flex items-center border border-slate-700 bg-slate-950 px-4 transition focus-within:border-blue-500">
+            <div className="hard-edge flex items-center border border-[#D9D9D4] bg-white px-4 transition focus-within:border-[#F97316]">
               <Lock
-                className="shrink-0 text-slate-500"
+                className="shrink-0 text-[#888888]"
                 size={20}
               />
 
@@ -199,13 +199,13 @@ export default function SignUpPage() {
                 }}
                 placeholder="••••••••"
                 autoComplete="new-password"
-                className="w-full bg-transparent px-3 py-4 outline-none placeholder:text-slate-500"
+                className="w-full bg-transparent px-3 py-4 text-[#111111] outline-none placeholder:text-[#888888]"
               />
 
               <button
                 type="button"
                 onClick={() => setShowPassword((prev) => !prev)}
-                className="shrink-0 text-slate-500 transition hover:text-white"
+                className="shrink-0 text-[#888888] transition hover:text-[#111111]"
                 aria-label={
                   showPassword
                     ? "Hide password"
@@ -225,9 +225,9 @@ export default function SignUpPage() {
               <motion.div
                 initial={{ opacity: 0, height: 0 }}
                 animate={{ opacity: 1, height: "auto" }}
-                className="mt-3 space-y-2 rounded-xl border border-slate-800 bg-slate-950/50 p-4"
+                className="mt-3 space-y-2 border border-[#D9D9D4] bg-[#F1F1EE] p-4"
               >
-                <p className="mb-2 text-xs font-medium text-slate-400">
+                <p className="mb-2 text-xs font-medium text-[#666666]">
                   Password requirements
                 </p>
 
@@ -276,7 +276,7 @@ export default function SignUpPage() {
         </form>
 
         {/* Footer */}
-        <div className="mt-8 text-center text-sm text-slate-400">
+        <div className="mt-8 text-center text-sm text-[#666666]">
           Already have an account?{" "}
           <Link
             href="/sign-in"
@@ -303,7 +303,7 @@ function PasswordRule({
   return (
     <div
       className={`flex items-center gap-2 text-xs transition-colors ${
-        valid ? "text-green-400" : "text-slate-500"
+        valid ? "text-[#A3E635]" : "text-[#888888]"
       }`}
     >
       {valid ? (

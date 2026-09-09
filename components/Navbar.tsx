@@ -89,14 +89,14 @@ const Navbar = () => {
             <>
               <Link
                 href="/dashboard"
-                className="nav-link border border-[#111111] px-5 py-2 text-sm font-semibold text-[#111111]"
+                className="nav-link hard-edge border border-[#111111] px-5 py-2 text-sm font-semibold text-[#111111]"
               >
                 Dashboard
               </Link>
 
               <Link
                 href="/profile"
-                className="nav-link flex items-center gap-2 border border-[#111111] px-5 py-2 text-sm font-semibold text-[#111111]"
+                className="nav-link hard-edge flex items-center gap-2 border border-[#111111] px-5 py-2 text-sm font-semibold text-[#111111]"
               >
                 <UserIcon size={16} />
                 Profile
@@ -104,7 +104,7 @@ const Navbar = () => {
 
               <button
                 onClick={requestLogout}
-                className="flex items-center gap-2 border border-[#111111] px-5 py-2 text-sm font-semibold text-[#111111] transition-colors hover:border-[#EA580C] hover:bg-[#EA580C] hover:text-white"
+                className="hard-edge flex items-center gap-2 border border-[#111111] px-5 py-2 text-sm font-semibold text-[#111111] transition-colors hover:border-[#EA580C] hover:bg-[#EA580C] hover:text-white"
               >
                 <LogOut size={16} />
                 Sign Out
@@ -114,7 +114,7 @@ const Navbar = () => {
             <>
               <Link
                 href="/sign-in"
-                className="nav-link border border-[#111111] px-5 py-2 text-sm font-semibold text-[#111111]"
+                className="nav-link hard-edge border border-[#111111] px-5 py-2 text-sm font-semibold text-[#111111]"
               >
                 Sign In
               </Link>

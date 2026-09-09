@@ -91,19 +91,19 @@ export function InterviewSetup({
     <div className="mx-auto max-w-5xl px-5">
       {/* Header */}
       <div className="mb-12 text-center">
-        <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-blue-500/20 bg-blue-500/10 px-5 py-2 text-sm text-blue-300 backdrop-blur-md">
+        <div className="mb-6 inline-flex items-center gap-2 border border-orange-200 bg-orange-50 px-5 py-2 text-sm text-[#F97316]">
           <BrainCircuit size={16} />
           Configure Your Interview
         </div>
 
         <h1 className="text-4xl font-black md:text-5xl">
           Set Up Your{" "}
-          <span className="bg-gradient-to-r from-blue-400 to-cyan-400 bg-clip-text text-transparent">
+          <span className="text-[#F97316]">
             Practice Interview
           </span>
         </h1>
 
-        <p className="mt-4 text-lg text-slate-400">
+        <p className="mt-4 text-lg text-[#666666]">
           Choose your role, difficulty, and interview type to begin.
         </p>
       </div>
@@ -120,13 +120,13 @@ export function InterviewSetup({
                 onClick={() => setRole(r)}
                 className={`flex items-center gap-4 rounded-2xl border p-5 text-left transition-all duration-300 ${
                   isActive
-                    ? "border-blue-500 bg-blue-500/10 shadow-lg"
-                    : "border-slate-800 bg-slate-900/60 hover:border-slate-700"
+                    ? "border-[#F97316] bg-orange-50 shadow-[4px_4px_0_#111111]"
+                    : "border-[#D9D9D4] bg-white hover:border-[#F97316]"
                 }`}
               >
                 <div
                   className={`flex h-12 w-12 items-center justify-center rounded-xl ${
-                    isActive ? "bg-blue-600" : "bg-slate-800"
+                    isActive ? "bg-[#F97316]" : "bg-[#EEECE7]"
                   }`}
                 >
                   <Mic size={22} />
@@ -150,8 +150,8 @@ export function InterviewSetup({
                 onClick={() => setDifficulty(d)}
                 className={`rounded-2xl border p-6 text-center transition-all duration-300 ${
                   isActive
-                    ? "border-blue-500 bg-blue-500/10 shadow-lg"
-                    : "border-slate-800 bg-slate-900/60 hover:border-slate-700"
+                    ? "border-[#F97316] bg-orange-50 shadow-[4px_4px_0_#111111]"
+                    : "border-[#D9D9D4] bg-white hover:border-[#F97316]"
                 }`}
               >
                 <p className="text-lg font-semibold capitalize">{d}</p>
@@ -173,13 +173,13 @@ export function InterviewSetup({
                 onClick={() => setInterviewType(value)}
                 className={`flex items-center gap-5 rounded-2xl border p-6 text-left transition-all duration-300 ${
                   isActive
-                    ? "border-blue-500 bg-blue-500/10 shadow-lg"
-                    : "border-slate-800 bg-slate-900/60 hover:border-slate-700"
+                    ? "border-[#F97316] bg-orange-50 shadow-[4px_4px_0_#111111]"
+                    : "border-[#D9D9D4] bg-white hover:border-[#F97316]"
                 }`}
               >
                 <div
                   className={`flex h-14 w-14 items-center justify-center rounded-xl ${
-                    isActive ? "bg-blue-600" : "bg-slate-800"
+                    isActive ? "bg-[#F97316]" : "bg-[#EEECE7]"
                   }`}
                 >
                   {icon}
@@ -205,20 +205,20 @@ export function InterviewSetup({
                 onClick={() => setMode(value)}
                 className={`flex items-center gap-5 rounded-2xl border p-6 text-left transition-all duration-300 ${
                   isActive
-                    ? "border-blue-500 bg-blue-500/10 shadow-lg"
-                    : "border-slate-800 bg-slate-900/60 hover:border-slate-700"
+                    ? "border-[#F97316] bg-orange-50 shadow-[4px_4px_0_#111111]"
+                    : "border-[#D9D9D4] bg-white hover:border-[#F97316]"
                 }`}
               >
                 <div
                   className={`flex h-14 w-14 items-center justify-center rounded-xl ${
-                    isActive ? "bg-blue-600" : "bg-slate-800"
+                    isActive ? "bg-[#F97316]" : "bg-[#EEECE7]"
                   }`}
                 >
                   {icon}
                 </div>
                 <div>
                   <p className="text-lg font-semibold">{label}</p>
-                  <p className="mt-1 text-sm text-slate-400">{description}</p>
+                  <p className="mt-1 text-sm text-[#666666]">{description}</p>
                 </div>
               </button>
             );
@@ -227,21 +227,21 @@ export function InterviewSetup({
       </div>
 
       {/* Duration selector */}
-      <div className="mb-8 rounded-3xl border border-slate-800 bg-slate-900/60 p-6 shadow-lg shadow-slate-950/20 backdrop-blur-xl">
+      <div className="mb-8 border border-[#D9D9D4] bg-white p-6 hard-card">
         <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
           <div className="max-w-xl">
-            <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-cyan-500/20 bg-cyan-500/10 px-3 py-1 text-sm text-cyan-300">
+            <div className="mb-3 inline-flex items-center gap-2 border border-yellow-200 bg-yellow-50 px-3 py-1 text-sm text-yellow-700">
               <Clock3 size={16} />
               Interview Duration
             </div>
             <h3 className="text-xl font-semibold text-white">Set a realistic session length</h3>
-            <p className="mt-2 text-sm text-slate-400">
+            <p className="mt-2 text-sm text-[#666666]">
               Choose how long you want the interview to run. The timer will count down and end the session automatically.
             </p>
           </div>
 
-          <div className="w-full max-w-sm rounded-2xl border border-slate-800 bg-slate-950/70 p-4">
-            <label htmlFor="duration-minutes" className="mb-2 block text-sm font-medium text-slate-300">
+          <div className="w-full max-w-sm border border-[#D9D9D4] bg-[#F1F1EE] p-4">
+            <label htmlFor="duration-minutes" className="mb-2 block text-sm font-medium text-[#111111]">
               Duration (minutes)
             </label>
             <div className="flex items-center gap-3">
@@ -253,7 +253,7 @@ export function InterviewSetup({
                 step="5"
                 value={durationMinutes}
                 onChange={(event) => setDurationMinutes(Number(event.target.value))}
-                className="h-2 w-full cursor-pointer appearance-none rounded-full bg-slate-800 accent-cyan-500"
+                className="h-2 w-full cursor-pointer appearance-none rounded-full bg-[#D9D9D4] accent-[#FACC15]"
               />
               <input
                 type="number"
@@ -268,12 +268,12 @@ export function InterviewSetup({
                   }
                   setDurationMinutes(Math.min(120, Math.max(5, nextValue)));
                 }}
-                className="w-24 rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-center text-sm font-semibold text-white outline-none focus:border-cyan-500"
+                className="w-24 border border-[#D9D9D4] bg-white px-3 py-2 text-center text-sm font-semibold text-[#111111] outline-none focus:border-[#FACC15]"
               />
             </div>
-            <div className="mt-3 flex items-center justify-between text-xs text-slate-500">
+            <div className="mt-3 flex items-center justify-between text-xs text-[#888888]">
               <span>5 min</span>
-              <span className="rounded-full border border-cyan-500/20 bg-cyan-500/10 px-3 py-1 text-sm font-semibold text-cyan-300">
+              <span className="border border-yellow-200 bg-yellow-50 px-3 py-1 text-sm font-semibold text-yellow-700">
                 {estimatedDurationLabel}
               </span>
               <span>120 min</span>
@@ -283,10 +283,10 @@ export function InterviewSetup({
       </div>
 
       {/* CTA */}
-      <div className="rounded-3xl border border-slate-800 bg-gradient-to-r from-blue-600/10 via-cyan-600/5 to-blue-600/10 p-8 backdrop-blur-xl">
+      <div className="border border-[#D9D9D4] bg-[#F5F4F0] p-8 hard-card">
         <div className="flex flex-col items-center gap-6 sm:flex-row sm:justify-between">
           <div className="text-center sm:text-left">
-            <p className="text-sm text-slate-400">Selected Duration</p>
+            <p className="text-sm text-[#666666]">Selected Duration</p>
             <p className="text-xl font-bold">{estimatedDurationLabel}</p>
           </div>
 
@@ -295,8 +295,8 @@ export function InterviewSetup({
             disabled={!ready}
             className={`inline-flex items-center gap-3 rounded-xl px-8 py-4 font-semibold transition-all duration-300 ${
               ready
-                ? "bg-gradient-to-r from-blue-600 to-cyan-500 hover:scale-105 hover:shadow-lg"
-                : "cursor-not-allowed bg-slate-800 opacity-50"
+                ? "hard-edge bg-[#F97316] hover:bg-[#EA580C]"
+                : "cursor-not-allowed bg-[#D9D9D4] opacity-50"
             }`}
           >
             Start Interview

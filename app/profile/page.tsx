@@ -613,7 +613,7 @@ export default function ProfilePage() {
 
   if (authLoading) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-[#020817]">
+      <div className="flex min-h-screen items-center justify-center bg-[#FAF9F6]">
         <LoadingSpinner
           size="lg"
           text="Loading profile..."
@@ -708,27 +708,27 @@ export default function ProfilePage() {
 
   return (
     <ProtectedRoute>
-      <main className="min-h-screen bg-[#020817] pt-28 pb-20 text-white">
+      <main className="min-h-screen bg-[#FAF9F6] pt-28 pb-20 text-[#111111]">
         <div className="mx-auto max-w-5xl px-5 sm:px-6 lg:px-8">
 
           {/* BACK */}
           <Link
             href="/dashboard"
-            className="mb-8 inline-flex items-center gap-2 text-sm text-slate-400 transition-colors hover:text-white"
+            className="mb-8 inline-flex items-center gap-2 text-sm text-[#666666] transition-colors hover:text-[#111111]"
           >
             <ArrowLeft size={16} />
             Back to Dashboard
           </Link>
 
           {/* PROFILE HEADER */}
-          <div className="mb-10 rounded-3xl border border-slate-800 bg-slate-900/60 p-8 backdrop-blur-xl">
+          <div className="mb-10 border border-[#D9D9D4] bg-white p-8 hard-card">
             <div className="flex flex-col gap-6 sm:flex-row sm:items-start">
 
               {/* Avatar */}
               <div className="flex flex-col items-center gap-3 sm:items-start">
                 <div className="relative">
 
-                  <div className="flex h-24 w-24 flex-shrink-0 overflow-hidden rounded-2xl border border-slate-700 bg-gradient-to-br from-blue-600 to-cyan-500 text-white shadow-xl shadow-blue-600/20">
+                  <div className="flex h-24 w-24 flex-shrink-0 overflow-hidden border border-[#D9D9D4] bg-[#F97316] text-white">
 
                     {avatarUrl ? (
                       <img
@@ -750,7 +750,7 @@ export default function ProfilePage() {
                       handleEditProfile
                     }
                     aria-label="Edit profile picture"
-                    className="absolute -bottom-2 -right-2 flex h-9 w-9 items-center justify-center rounded-full border-2 border-[#020817] bg-blue-600 text-white shadow-lg transition-colors hover:bg-blue-500"
+                    className="hard-edge absolute -bottom-2 -right-2 flex h-9 w-9 items-center justify-center border-2 border-white bg-[#F97316] text-white hover:bg-[#EA580C]"
                   >
                     <Camera size={16} />
                   </button>
@@ -768,12 +768,12 @@ export default function ProfilePage() {
                       {name}
                     </h1>
 
-                    <div className="mt-3 flex flex-wrap items-center justify-center gap-4 text-sm text-slate-400 sm:justify-start">
+                    <div className="mt-3 flex flex-wrap items-center justify-center gap-4 text-sm text-[#666666] sm:justify-start">
 
                       <div className="flex items-center gap-2">
                         <Mail
                           size={16}
-                          className="text-blue-400"
+                          className="text-[#F97316]"
                         />
 
                         <span className="break-all">
@@ -784,7 +784,7 @@ export default function ProfilePage() {
                       <div className="flex items-center gap-2">
                         <Calendar
                           size={16}
-                          className="text-cyan-400"
+                          className="text-[#A855F7]"
                         />
 
                         <span>
@@ -803,7 +803,7 @@ export default function ProfilePage() {
                     onClick={
                       handleEditProfile
                     }
-                    className="mx-auto inline-flex items-center justify-center gap-2 rounded-xl border border-slate-700 bg-slate-800/70 px-5 py-3 text-sm font-semibold text-white transition-all hover:border-blue-500/50 hover:bg-slate-800 sm:mx-0"
+                    className="hard-edge mx-auto inline-flex items-center justify-center gap-2 border border-[#111111] bg-[#F1F1EE] px-5 py-3 text-sm font-semibold text-[#111111] hover:bg-[#EEECE7] sm:mx-0"
                   >
                     <Pencil size={16} />
                     Edit Profile
@@ -819,7 +819,7 @@ export default function ProfilePage() {
           {isEditing && (
             <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-4 py-6 backdrop-blur-sm">
 
-              <div className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-3xl border border-slate-700 bg-[#0b1220] p-6 shadow-2xl sm:p-8">
+              <div className="max-h-[90vh] w-full max-w-lg overflow-y-auto border border-[#D9D9D4] bg-white p-6 hard-card sm:p-8">
 
                 {/* Modal header */}
                 <div className="mb-8 flex items-center justify-between">
@@ -829,7 +829,7 @@ export default function ProfilePage() {
                       Edit Profile
                     </h2>
 
-                    <p className="mt-1 text-sm text-slate-400">
+                    <p className="mt-1 text-sm text-[#666666]">
                       Update your personal information.
                     </p>
                   </div>
@@ -842,7 +842,7 @@ export default function ProfilePage() {
                     disabled={
                       savingProfile
                     }
-                    className="flex h-10 w-10 items-center justify-center rounded-xl text-slate-400 transition-colors hover:bg-slate-800 hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
+                    className="flex h-10 w-10 items-center justify-center text-[#888888] transition-colors hover:bg-[#F1F1EE] hover:text-[#111111] disabled:cursor-not-allowed disabled:opacity-50"
                     aria-label="Close"
                   >
                     <X size={20} />
@@ -855,7 +855,7 @@ export default function ProfilePage() {
 
                   <div className="relative">
 
-                    <div className="flex h-32 w-32 overflow-hidden rounded-3xl border border-slate-700 bg-gradient-to-br from-blue-600 to-cyan-500 shadow-xl">
+                    <div className="flex h-32 w-32 overflow-hidden border border-[#D9D9D4] bg-[#F97316]">
 
                       {previewUrl ? (
                         <img
@@ -879,7 +879,7 @@ export default function ProfilePage() {
                       disabled={
                         savingProfile
                       }
-                      className="absolute -bottom-2 -right-2 flex h-11 w-11 items-center justify-center rounded-full border-4 border-[#0b1220] bg-blue-600 text-white transition-colors hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-50"
+                      className="hard-edge absolute -bottom-2 -right-2 flex h-11 w-11 items-center justify-center border-4 border-white bg-[#F97316] text-white hover:bg-[#EA580C] disabled:cursor-not-allowed disabled:opacity-50"
                       aria-label="Upload profile picture"
                     >
                       <Camera size={18} />
@@ -895,13 +895,13 @@ export default function ProfilePage() {
                     disabled={
                       savingProfile
                     }
-                    className="mt-4 inline-flex items-center gap-2 text-sm font-medium text-blue-400 transition-colors hover:text-blue-300 disabled:cursor-not-allowed disabled:opacity-50"
+                    className="mt-4 inline-flex items-center gap-2 text-sm font-medium text-[#F97316] transition-colors hover:text-[#EA580C] disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     <Upload size={15} />
                     Change photo
                   </button>
 
-                  <p className="mt-2 text-center text-xs text-slate-500">
+                  <p className="mt-2 text-center text-xs text-[#888888]">
                     JPG, PNG, or WebP · Maximum 5MB
                   </p>
 
@@ -937,7 +937,7 @@ export default function ProfilePage() {
 
                   <label
                     htmlFor="fullName"
-                    className="mb-2 block text-sm font-medium text-slate-300"
+                    className="mb-2 block text-sm font-medium text-[#111111]"
                   >
                     Full Name
                   </label>
@@ -956,10 +956,10 @@ export default function ProfilePage() {
                     disabled={
                       savingProfile
                     }
-                    className="w-full rounded-xl border border-slate-700 bg-slate-900/80 px-4 py-3 text-white outline-none transition-all placeholder:text-slate-500 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 disabled:cursor-not-allowed disabled:opacity-60"
+                    className="w-full border border-[#D9D9D4] bg-[#F1F1EE] px-4 py-3 text-[#111111] outline-none transition-all placeholder:text-[#888888] focus:border-[#F97316] disabled:cursor-not-allowed disabled:opacity-60"
                   />
 
-                  <p className="mt-2 text-xs text-slate-500">
+                  <p className="mt-2 text-xs text-[#888888]">
                     {fullName.length}/100
                     characters
                   </p>
@@ -971,7 +971,7 @@ export default function ProfilePage() {
 
                   <label
                     htmlFor="email"
-                    className="mb-2 block text-sm font-medium text-slate-300"
+                    className="mb-2 block text-sm font-medium text-[#111111]"
                   >
                     Email
                   </label>
@@ -980,7 +980,7 @@ export default function ProfilePage() {
 
                     <Mail
                       size={17}
-                      className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500"
+                      className="absolute left-4 top-1/2 -translate-y-1/2 text-[#888888]"
                     />
 
                     <input
@@ -988,16 +988,16 @@ export default function ProfilePage() {
                       type="email"
                       value={email}
                       disabled
-                      className="w-full cursor-not-allowed rounded-xl border border-slate-800 bg-slate-800/40 py-3 pl-11 pr-16 text-slate-500"
+                      className="w-full cursor-not-allowed border border-[#D9D9D4] bg-[#F1F1EE] py-3 pl-11 pr-16 text-[#888888]"
                     />
 
-                    <span className="absolute right-4 top-1/2 -translate-y-1/2 text-xs text-slate-600">
+                    <span className="absolute right-4 top-1/2 -translate-y-1/2 text-xs text-[#888888]">
                       Locked
                     </span>
 
                   </div>
 
-                  <p className="mt-2 text-xs text-slate-500">
+                  <p className="mt-2 text-xs text-[#888888]">
                     Your email is managed by your Intervyou.ai account.
                   </p>
 
@@ -1014,7 +1014,7 @@ export default function ProfilePage() {
                     disabled={
                       savingProfile
                     }
-                    className="rounded-xl border border-slate-700 px-5 py-3 text-sm font-semibold text-slate-300 transition-colors hover:bg-slate-800 hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
+                    className="hard-edge border border-[#111111] px-5 py-3 text-sm font-semibold text-[#111111] transition-colors hover:bg-[#F1F1EE] disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     Cancel
                   </button>
@@ -1027,7 +1027,7 @@ export default function ProfilePage() {
                     disabled={
                       savingProfile
                     }
-                    className="inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-blue-600 to-cyan-500 px-6 py-3 text-sm font-semibold text-white shadow-lg shadow-blue-600/20 transition-all hover:scale-[1.02] hover:shadow-blue-600/30 disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:scale-100"
+                    className="hard-edge inline-flex items-center justify-center gap-2 bg-[#F97316] px-6 py-3 text-sm font-semibold text-white hover:bg-[#EA580C] disabled:cursor-not-allowed disabled:opacity-60"
                   >
                     {savingProfile ? (
                       <>
@@ -1055,9 +1055,9 @@ export default function ProfilePage() {
           <div className="mb-10 grid gap-6 sm:grid-cols-3">
 
             {/* Total interviews */}
-            <div className="rounded-3xl border border-slate-800 bg-slate-900/60 p-6 backdrop-blur-xl">
+            <div className="border border-[#D9D9D4] bg-white p-6 hard-card">
 
-              <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-blue-500/10 text-blue-400">
+              <div className="mb-4 flex h-12 w-12 items-center justify-center bg-orange-50 text-[#F97316]">
                 <BarChart3 size={24} />
               </div>
 
@@ -1065,16 +1065,16 @@ export default function ProfilePage() {
                 {totalInterviews}
               </p>
 
-              <p className="mt-1 text-sm text-slate-400">
+              <p className="mt-1 text-sm text-[#666666]">
                 Interviews Completed
               </p>
 
             </div>
 
             {/* Average score */}
-            <div className="rounded-3xl border border-slate-800 bg-slate-900/60 p-6 backdrop-blur-xl">
+            <div className="border border-[#D9D9D4] bg-white p-6 hard-card">
 
-              <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-violet-500/10 text-violet-400">
+              <div className="mb-4 flex h-12 w-12 items-center justify-center bg-orange-50 text-[#F97316]">
                 <Award size={24} />
               </div>
 
@@ -1084,14 +1084,14 @@ export default function ProfilePage() {
                   : "—"}
               </p>
 
-              <p className="mt-1 text-sm text-slate-400">
+              <p className="mt-1 text-sm text-[#666666]">
                 Average Score
               </p>
 
             </div>
 
             {/* Highest score */}
-            <div className="rounded-3xl border border-slate-800 bg-slate-900/60 p-6 backdrop-blur-xl">
+            <div className="border border-[#D9D9D4] bg-white p-6 hard-card">
 
               <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-emerald-500/10 text-emerald-400">
                 <Trophy size={24} />
@@ -1103,7 +1103,7 @@ export default function ProfilePage() {
                   : "—"}
               </p>
 
-              <p className="mt-1 text-sm text-slate-400">
+              <p className="mt-1 text-sm text-[#666666]">
                 Highest Score
               </p>
 
@@ -1112,14 +1112,14 @@ export default function ProfilePage() {
           </div>
 
           {/* RECENT INTERVIEWS */}
-          <div className="rounded-3xl border border-slate-800 bg-slate-900/60 p-8 backdrop-blur-xl">
+          <div className="border border-[#D9D9D4] bg-[#F1F1EE] p-8 hard-card">
 
             <h2 className="mb-6 text-xl font-bold">
               Recent Interviews
             </h2>
 
             {interviews.length === 0 ? (
-              <div className="py-12 text-center text-slate-400">
+              <div className="py-12 text-center text-[#666666]">
 
                 <p>
                   No interviews completed yet.
@@ -1127,7 +1127,7 @@ export default function ProfilePage() {
 
                 <Link
                   href="/interview"
-                  className="mt-4 inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-blue-600 to-cyan-500 px-6 py-3 font-semibold text-white transition-transform hover:scale-105"
+                  className="hard-edge mt-4 inline-flex items-center gap-2 bg-[#F97316] px-6 py-3 font-semibold text-white hover:bg-[#EA580C]"
                 >
                   Start Practice Interview
                 </Link>
@@ -1140,7 +1140,7 @@ export default function ProfilePage() {
                   (item) => (
                     <div
                       key={item.id}
-                      className="flex flex-col justify-between gap-4 rounded-2xl border border-slate-800 bg-slate-800/40 p-5 sm:flex-row sm:items-center"
+                      className="flex flex-col justify-between gap-4 border border-[#D9D9D4] bg-[#F1F1EE] p-5 sm:flex-row sm:items-center"
                     >
 
                       <div className="min-w-0">
@@ -1151,13 +1151,13 @@ export default function ProfilePage() {
                             {item.role}
                           </span>
 
-                          <span className="rounded-full bg-slate-700/60 px-3 py-1 text-xs capitalize text-slate-300">
+                          <span className="bg-[#EEECE7] px-3 py-1 text-xs capitalize text-[#666666]">
                             {
                               item.interviewType
                             }
                           </span>
 
-                          <span className="rounded-full bg-blue-500/10 px-3 py-1 text-xs capitalize text-blue-400">
+                          <span className="bg-orange-50 px-3 py-1 text-xs capitalize text-[#F97316]">
                             {
                               item.difficulty
                             }
@@ -1165,7 +1165,7 @@ export default function ProfilePage() {
 
                         </div>
 
-                        <div className="mt-1 flex flex-wrap items-center gap-4 text-xs text-slate-400">
+                        <div className="mt-1 flex flex-wrap items-center gap-4 text-xs text-[#666666]">
 
                           <span>
                             Completed on{" "}

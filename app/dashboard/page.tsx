@@ -306,7 +306,7 @@ export default function DashboardPage() {
 
   if (authLoading) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-[#020817]">
+      <div className="flex min-h-screen items-center justify-center bg-[#FAF9F6]">
         <LoadingSpinner
           size="lg"
           text="Loading dashboard..."
@@ -392,38 +392,33 @@ export default function DashboardPage() {
       icon: BarChart3,
       label: "Interviews Completed",
       value: String(completedCount),
-      color:
-        "from-blue-500 to-cyan-500",
+      color: "bg-orange-100",
     },
     {
       icon: Target,
       label: "Average Score",
       value: avgScore,
-      color:
-        "from-violet-500 to-fuchsia-500",
+      color: "bg-yellow-100",
     },
     {
       icon: Clock,
       label: "Total Practice Time",
       value: totalTimeDisplay,
-      color:
-        "from-emerald-500 to-green-500",
+      color: "bg-lime-100",
     },
     {
       icon: Award,
       label: "Streak",
       value: streakDisplay,
-      color:
-        "from-orange-500 to-red-500",
+      color: "bg-pink-100",
     },
   ];
 
   return (
     <ProtectedRoute>
-      <main className="relative min-h-screen bg-[#020817] pt-28 pb-20 text-white">
+      <main className="relative min-h-screen bg-[#FAF9F6] pt-28 pb-20 text-[#111111]">
         {/* Background */}
         <div className="absolute inset-0 -z-10 overflow-hidden">
-          <div className="absolute left-1/2 top-0 h-[500px] w-[500px] -translate-x-1/2 rounded-full bg-blue-500/10 blur-[170px]" />
 
           <div
             className="absolute inset-0 opacity-[0.08]"
@@ -452,14 +447,14 @@ export default function DashboardPage() {
           >
             <h1 className="text-4xl font-black md:text-5xl">
               Welcome back,{" "}
-              <span className="bg-gradient-to-r from-blue-400 to-cyan-400 bg-clip-text text-transparent">
+              <span className="text-[#F97316]">
                 {user?.name ||
                   user?.email ||
                   "Intervyou.ai User"}
               </span>
             </h1>
 
-            <p className="mt-3 text-lg text-slate-400">
+            <p className="mt-3 text-lg text-[#666666]">
               Ready to ace your next interview?
               Let&apos;s get started.
             </p>
@@ -484,10 +479,10 @@ export default function DashboardPage() {
                   transition={{
                     delay: index * 0.1,
                   }}
-                  className="rounded-3xl border border-slate-800 bg-slate-900/60 p-6 backdrop-blur-xl transition-all duration-300 hover:border-blue-500/40"
+                  className="border border-[#D9D9D4] bg-white p-6 hard-card"
                 >
                   <div
-                    className={`mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br ${stat.color}`}
+                    className={`mb-4 flex h-12 w-12 items-center justify-center ${stat.color}`}
                   >
                     <Icon size={22} />
                   </div>
@@ -496,7 +491,7 @@ export default function DashboardPage() {
                     {stat.value}
                   </p>
 
-                  <p className="mt-1 text-sm text-slate-400">
+                  <p className="mt-1 text-sm text-[#666666]">
                     {stat.label}
                   </p>
                 </motion.div>
@@ -526,18 +521,18 @@ export default function DashboardPage() {
             <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
               <Link
                 href="/interview"
-                className="group rounded-3xl border border-slate-800 bg-gradient-to-br from-blue-600/10 to-cyan-600/10 p-6 backdrop-blur-xl transition-all duration-300 hover:border-blue-500/40 hover:shadow-lg hover:shadow-blue-500/10"
+                className="group border border-[#D9D9D4] bg-[#F1F1EE] p-6 hard-card"
               >
                 <PlayCircle
                   size={32}
-                  className="mb-4 text-blue-400"
+                  className="mb-4 text-[#F97316]"
                 />
 
                 <h3 className="text-lg font-bold">
                   Start Interview
                 </h3>
 
-                <p className="mt-2 text-sm text-slate-400">
+                <p className="mt-2 text-sm text-[#666666]">
                   Begin a new practice interview
                   session
                 </p>
@@ -545,18 +540,18 @@ export default function DashboardPage() {
 
               <Link
                 href="/resume"
-                className="group rounded-3xl border border-slate-800 bg-gradient-to-br from-violet-600/10 to-fuchsia-600/10 p-6 backdrop-blur-xl transition-all duration-300 hover:border-violet-500/40 hover:shadow-lg hover:shadow-violet-500/10"
+                className="group border border-[#D9D9D4] bg-[#F5F4F0] p-6 hard-card"
               >
                 <FileText
                   size={32}
-                  className="mb-4 text-violet-400"
+                  className="mb-4 text-[#A855F7]"
                 />
 
                 <h3 className="text-lg font-bold">
                   Analyze Resume
                 </h3>
 
-                <p className="mt-2 text-sm text-slate-400">
+                <p className="mt-2 text-sm text-[#666666]">
                   Upload your resume for AI
                   analysis
                 </p>
@@ -564,7 +559,7 @@ export default function DashboardPage() {
 
               <Link
                 href="/profile"
-                className="group rounded-3xl border border-slate-800 bg-gradient-to-br from-emerald-600/10 to-green-600/10 p-6 backdrop-blur-xl transition-all duration-300 hover:border-emerald-500/40 hover:shadow-lg hover:shadow-emerald-500/10"
+                className="group border border-lime-200 bg-lime-50 p-6 hard-card"
               >
                 <User
                   size={32}
@@ -575,7 +570,7 @@ export default function DashboardPage() {
                   View Profile
                 </h3>
 
-                <p className="mt-2 text-sm text-slate-400">
+                <p className="mt-2 text-sm text-[#666666]">
                   Manage your account settings
                 </p>
               </Link>
@@ -595,7 +590,7 @@ export default function DashboardPage() {
             transition={{
               delay: 0.4,
             }}
-            className="mb-12 rounded-3xl border border-slate-800 bg-slate-900/60 p-8 backdrop-blur-xl"
+            className="mb-12 border border-[#D9D9D4] bg-white p-8 hard-card"
           >
             <div className="mb-6 flex items-center justify-between gap-4">
               <h2 className="text-2xl font-bold">
@@ -603,7 +598,7 @@ export default function DashboardPage() {
               </h2>
 
               {interviews.length > 5 && (
-                <span className="text-sm text-slate-500">
+                <span className="text-sm text-[#888888]">
                   Showing latest 5
                 </span>
               )}
@@ -613,21 +608,21 @@ export default function DashboardPage() {
               <div className="flex flex-col items-center justify-center py-12 text-center">
                 <BarChart3
                   size={48}
-                  className="mb-4 text-slate-600"
+                  className="mb-4 text-[#888888]"
                 />
 
-                <p className="text-lg text-slate-400">
+                <p className="text-lg text-[#666666]">
                   No interviews completed yet
                 </p>
 
-                <p className="mt-2 text-sm text-slate-500">
+                <p className="mt-2 text-sm text-[#888888]">
                   Complete your first interview
                   to see it here
                 </p>
 
                 <Link
                   href="/interview"
-                  className="mt-6 inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-blue-600 to-cyan-500 px-6 py-3 font-semibold transition-all duration-300 hover:scale-105"
+                  className="hard-edge mt-6 inline-flex items-center gap-2 bg-[#F97316] px-6 py-3 font-semibold text-white hover:bg-[#EA580C]"
                 >
                   Start First Interview
                   <ArrowRight size={18} />
@@ -658,7 +653,7 @@ export default function DashboardPage() {
                     return (
                       <div
                         key={item._id}
-                        className="flex flex-col justify-between gap-4 rounded-2xl border border-slate-800 bg-slate-800/40 p-5 transition-all duration-300 hover:border-slate-700 sm:flex-row sm:items-center"
+                        className="flex flex-col justify-between gap-4 border border-[#D9D9D4] bg-[#F1F1EE] p-5 sm:flex-row sm:items-center"
                       >
                         {/* Interview information */}
                         <div className="min-w-0 flex-1">
@@ -667,20 +662,20 @@ export default function DashboardPage() {
                               {item.role}
                             </span>
 
-                            <span className="rounded-full bg-slate-700/60 px-3 py-1 text-xs capitalize text-slate-300">
+                            <span className="bg-[#EEECE7] px-3 py-1 text-xs capitalize text-[#666666]">
                               {
                                 item.interviewType
                               }
                             </span>
 
-                            <span className="rounded-full bg-blue-500/10 px-3 py-1 text-xs capitalize text-blue-400">
+                            <span className="bg-orange-50 px-3 py-1 text-xs capitalize text-[#F97316]">
                               {
                                 item.difficulty
                               }
                             </span>
                           </div>
 
-                          <div className="mt-2 flex flex-wrap items-center gap-4 text-xs text-slate-400">
+                          <div className="mt-2 flex flex-wrap items-center gap-4 text-xs text-[#666666]">
                             <span>
                               {new Date(
                                 item.createdAt
@@ -731,7 +726,7 @@ export default function DashboardPage() {
                             disabled={deleting}
                             aria-label={`Delete ${item.role} interview`}
                             title="Delete interview"
-                            className="group flex h-10 w-10 items-center justify-center rounded-xl border border-slate-700 bg-slate-800/70 text-slate-400 transition-all duration-300 hover:border-red-500/40 hover:bg-red-500/10 hover:text-red-400 disabled:cursor-not-allowed disabled:opacity-50"
+                            className="hard-edge group flex h-10 w-10 items-center justify-center border border-red-200 bg-red-50 text-red-600 hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-50"
                           >
                             <Trash2
                               size={17}
@@ -759,7 +754,7 @@ export default function DashboardPage() {
             transition={{
               delay: 0.5,
             }}
-            className="rounded-3xl border border-slate-800 bg-slate-900/60 p-8 backdrop-blur-xl"
+            className="border border-[#D9D9D4] bg-white p-8 hard-card"
           >
             <h2 className="mb-6 text-2xl font-bold">
               Latest AI Feedback
@@ -767,7 +762,7 @@ export default function DashboardPage() {
 
             {latestInterview ? (
               <div className="space-y-4">
-                <div className="flex flex-col gap-4 rounded-2xl border border-slate-800 bg-slate-800/40 p-6 sm:flex-row sm:items-center sm:justify-between">
+                <div className="flex flex-col gap-4 border border-[#D9D9D4] bg-[#F1F1EE] p-6 sm:flex-row sm:items-center sm:justify-between">
                   <div className="min-w-0">
                     <div className="flex flex-wrap items-center gap-3">
                       <span className="text-xl font-bold text-white">
@@ -776,7 +771,7 @@ export default function DashboardPage() {
                         }
                       </span>
 
-                      <span className="rounded-full bg-blue-500/10 px-3 py-1 text-xs font-medium capitalize text-blue-400">
+                      <span className="bg-orange-50 px-3 py-1 text-xs font-medium capitalize text-[#F97316]">
                         {
                           latestInterview.difficulty
                         }
@@ -785,7 +780,7 @@ export default function DashboardPage() {
 
                     {latestInterview.feedback
                       ?.summary && (
-                      <p className="mt-3 text-sm leading-relaxed text-slate-300">
+                      <p className="mt-3 text-sm leading-relaxed text-[#666666]">
                         {
                           latestInterview
                             .feedback
@@ -794,7 +789,7 @@ export default function DashboardPage() {
                       </p>
                     )}
 
-                    <p className="mt-2 text-xs text-slate-500">
+                    <p className="mt-2 text-xs text-[#888888]">
                       Completed on{" "}
                       {new Date(
                         latestInterview.createdAt
@@ -804,14 +799,14 @@ export default function DashboardPage() {
 
                   {typeof latestInterview.score ===
                     "number" && (
-                    <div className="flex flex-col items-center justify-center rounded-2xl border border-blue-500/30 bg-blue-500/10 px-6 py-4">
-                      <span className="text-3xl font-black text-blue-400">
+                    <div className="flex flex-col items-center justify-center border border-yellow-200 bg-yellow-50 px-6 py-4">
+                      <span className="text-3xl font-black text-yellow-700">
                         {
                           latestInterview.score
                         }
                       </span>
 
-                      <span className="text-xs text-slate-400">
+                      <span className="text-xs text-[#666666]">
                         Overall Score
                       </span>
                     </div>
@@ -822,21 +817,21 @@ export default function DashboardPage() {
               <div className="flex flex-col items-center justify-center py-12 text-center">
                 <Award
                   size={48}
-                  className="mb-4 text-slate-600"
+                  className="mb-4 text-[#888888]"
                 />
 
-                <p className="text-lg text-slate-400">
+                <p className="text-lg text-[#666666]">
                   No interviews completed yet
                 </p>
 
-                <p className="mt-2 text-sm text-slate-500">
+                <p className="mt-2 text-sm text-[#888888]">
                   Complete your first interview
                   to see AI feedback here
                 </p>
 
                 <Link
                   href="/interview"
-                  className="mt-6 inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-blue-600 to-cyan-500 px-6 py-3 font-semibold transition-all duration-300 hover:scale-105"
+                  className="hard-edge mt-6 inline-flex items-center gap-2 bg-[#F97316] px-6 py-3 font-semibold text-white hover:bg-[#EA580C]"
                 >
                   Start First Interview
                   <ArrowRight size={18} />
