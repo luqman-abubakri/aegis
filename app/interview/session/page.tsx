@@ -227,7 +227,7 @@ const handleTranscriptUpdate = useCallback(
       }
       redirectTimeoutRef.current = window.setTimeout(() => {
         router.refresh();
-        router.push("/dashboard");
+        router.push("/interview");
       }, 1500);
 
       return true;
@@ -459,7 +459,7 @@ const currentGraphIndex = interview.state.currentQuestionIndex;
             {saved && (
               <div className="mb-6 flex items-center justify-center gap-2 text-sm text-emerald-400">
                 <CheckCircle size={16} />
-                Interview saved successfully! Redirecting to dashboard...
+                Interview saved successfully! Redirecting to interviews...
               </div>
             )}
             {saveError && !saved && (
