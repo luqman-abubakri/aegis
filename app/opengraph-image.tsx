@@ -8,7 +8,7 @@ export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
 
 export default async function OpenGraphImage() {
-  const logo = await readFile(join(process.cwd(), "public", "og-image.png.png"));
+  const logo = await readFile(join(process.cwd(), "public", "og-image.png"));
   const logoDataUri = `data:image/png;base64,${logo.toString("base64")}`;
 
   return new ImageResponse(

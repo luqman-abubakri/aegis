@@ -6,7 +6,7 @@ import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import { AuthProvider } from "@/contexts/AuthProvider";
 
-const siteUrl = "https://aegis-psi-three.vercel.app";
+const siteUrl = "";
 
 const sora = Sora({
   subsets: ["latin"],
@@ -49,7 +49,7 @@ export const metadata: Metadata = {
     locale: "en_US",
     images: [
       {
-        url: "/og-image.png.png",
+        url: "/og-image.png",
         width: 1200,
         height: 630,
         alt: "Intervyou.ai AI technical interview preparation",
@@ -61,7 +61,7 @@ export const metadata: Metadata = {
     title: "Intervyou.ai | AI Technical Interview Preparation",
     description:
       "Practice technical interviews with AI mock interviews, resume analysis, performance scoring, and personalized feedback.",
-    images: ["/og-image.png.png"],
+    images: ["/og-image.png"],
   },
   icons: {
     icon: [{ url: "/logo.png", type: "image/png" }],
