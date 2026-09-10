@@ -1,6 +1,6 @@
 import type { MetadataRoute } from "next";
 
-const siteUrl = "";
+const siteUrl = "https://intervyou-mu.vercel.app/";
 
 export default function sitemap(): MetadataRoute.Sitemap {
   return [
