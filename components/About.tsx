@@ -345,7 +345,7 @@ export default function FeaturesPage() {
           variants={stepItemVariants}
           className="text-3xl font-bold leading-tight sm:text-4xl"
         >
-          How Intervyou.ai Works In Three Simple Steps
+          How Intervyou<span className="text-[#F97316]">.</span>ai Works In Three Simple Steps
         </motion.h2>
 
         <div className="mt-10 grid gap-5 sm:mt-16 sm:gap-10 md:grid-cols-3">
