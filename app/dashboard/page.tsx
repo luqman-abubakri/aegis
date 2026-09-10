@@ -219,10 +219,6 @@ export default function DashboardPage() {
 
   /**
    * Delete interview.
-   *
-   * NOTE:
-   * The MongoDB delete API will be connected
-   * in the next step.
    */
   const handleConfirmDelete = async () => {
     if (!user || !interviewToDelete) return;
@@ -245,12 +241,17 @@ export default function DashboardPage() {
         }
       );
 
+      if (!response.ok) {
+        throw new Error(
+          `Could not delete interview (HTTP ${response.status})`
+        );
+      }
+
       const data = await response.json();
 
-      if (!response.ok || !data.success) {
+      if (!data.success) {
         throw new Error(
-          data.message ||
-            "Could not delete interview"
+          data.message || "Could not delete interview"
         );
       }
 
