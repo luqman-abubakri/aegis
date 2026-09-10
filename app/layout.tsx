@@ -6,7 +6,7 @@ import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import { AuthProvider } from "@/contexts/AuthProvider";
 
-const siteUrl = "";
+const siteUrl = "https://aegis-psi-three.vercel.app/";
 
 const sora = Sora({
   subsets: ["latin"],

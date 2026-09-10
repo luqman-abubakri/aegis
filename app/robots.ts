@@ -1,6 +1,6 @@
 import type { MetadataRoute } from "next";
 
-const siteUrl = "";
+const siteUrl = "https://aegis-psi-three.vercel.app/";
 
 export default function robots(): MetadataRoute.Robots {
   return {
