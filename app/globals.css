@@ -68,6 +68,13 @@ body {
   animation-duration: 12s;
 }
 
+@media (max-width: 639px) {
+  .hero-icon svg {
+    width: 34px;
+    height: 34px;
+  }
+}
+
 @keyframes hero-icon-drift {
   from { transform: translateY(-8px); }
   to { transform: translateY(8px); }

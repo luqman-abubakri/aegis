@@ -19,12 +19,12 @@ import { useAuth } from "@/contexts/AuthProvider";
 const HEADLINE = "Ace every technical interview";
 
 const productIcons = [
-  { Icon: FileText, label: "Resume analysis", position: "left-6 top-[18%] text-[#F97316]" },
-  { Icon: Target, label: "Interview preparation", position: "right-8 top-[16%] text-[#F97316]" },
-  { Icon: MessageSquare, label: "Interview questions", position: "left-[13%] top-[42%] text-[#EF4444]" },
-  { Icon: Mic, label: "Voice interviews", position: "right-[12%] top-[40%] text-[#FACC15]" },
-  { Icon: BrainCircuit, label: "AI evaluation", position: "left-[8%] bottom-[22%] text-[#A855F7]" },
-  { Icon: BarChart3, label: "Scores and performance", position: "right-[7%] bottom-[23%] text-[#A3E635]" },
+  { Icon: FileText, label: "Resume analysis", position: "left-6 top-[18%] max-sm:left-2 max-sm:top-[10%] text-[#F97316]" },
+  { Icon: Target, label: "Interview preparation", position: "right-8 top-[16%] max-sm:right-2 max-sm:top-[10%] text-[#F97316]" },
+  { Icon: MessageSquare, label: "Interview questions", position: "left-[13%] top-[42%] max-sm:left-1 max-sm:top-[27%] max-[380px]:hidden text-[#EF4444]" },
+  { Icon: Mic, label: "Voice interviews", position: "right-[12%] top-[40%] max-sm:right-1 max-sm:top-[27%] max-[380px]:hidden text-[#FACC15]" },
+  { Icon: BrainCircuit, label: "AI evaluation", position: "left-[8%] bottom-[22%] max-sm:left-2 max-sm:bottom-[12%] text-[#A855F7]" },
+  { Icon: BarChart3, label: "Scores and performance", position: "right-[7%] bottom-[23%] max-sm:right-2 max-sm:bottom-[12%] text-[#A3E635]" },
   { Icon: MessageCircleCheck, label: "AI feedback and coaching", position: "left-[25%] bottom-[11%] text-[#EC4899] hidden sm:block" },
   { Icon: CheckCircle2, label: "Progress and improvement", position: "right-[24%] bottom-[10%] text-[#111111] hidden sm:block" },
 ];
@@ -58,11 +58,11 @@ const Hero = () => {
 
   return (
     <section className="relative flex min-h-screen items-center overflow-hidden bg-[#FAF9F6] px-6 py-32">
-      <div className="pointer-events-none absolute inset-0" aria-hidden="true">
+      <div className="pointer-events-none absolute inset-0 z-0" aria-hidden="true">
         {productIcons.map(({ Icon, label, position }) => (
           <div
             key={label}
-            className={`hero-icon absolute max-sm:opacity-100 ${position}`}
+            className={`hero-icon absolute max-sm:opacity-65 max-[380px]:opacity-50 ${position}`}
             title={label}
           >
             <Icon size={46} strokeWidth={1.5} />
@@ -70,7 +70,7 @@ const Hero = () => {
         ))}
       </div>
 
-      <div className="mx-auto flex w-full max-w-5xl flex-col items-center">
+      <div className="relative z-10 mx-auto flex w-full max-w-5xl flex-col items-center">
         <motion.div
           initial={{ opacity: 0, y: 24 }}
           animate={{ opacity: 1, y: 0 }}
