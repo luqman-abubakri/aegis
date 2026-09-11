@@ -19,7 +19,6 @@ const FINISH_STAGE_LABELS: Record<string, string> = {
   saving: "Saving interview...",
   feedback: "Generating feedback...",
   "saving-feedback": "Saving feedback...",
-  redirecting: "Redirecting...",
 };
 
 const VOICE_COMMANDS = [
@@ -94,7 +93,6 @@ function SessionContent() {
   const isFinishingRef = useRef(false);
   const finishCompletedRef = useRef(false);
   const endTimestampRef = useRef<number | null>(null);
-  const redirectTimeoutRef = useRef<number | null>(null);
   const processingTranscriptRef = useRef(false);
   const autoAdvanceTimerRef = useRef<number | null>(null);
   const lastProcessedQuestionIdRef = useRef<string | null>(null);
@@ -219,16 +217,6 @@ const handleTranscriptUpdate = useCallback(
 
       finishCompletedRef.current = true;
       setSaved(true);
-      setFinishStage("redirecting");
-
-      // Clean up any previously scheduled redirect then schedule a new one.
-      if (redirectTimeoutRef.current) {
-        window.clearTimeout(redirectTimeoutRef.current);
-      }
-      redirectTimeoutRef.current = window.setTimeout(() => {
-        router.refresh();
-        router.push("/interview");
-      }, 1500);
 
       return true;
     } catch (error: unknown) {
@@ -248,15 +236,6 @@ const handleTranscriptUpdate = useCallback(
       setFinishStage(null);
     }
   }, [interview, router, voiceMode, vapi]);
-
-  // Cleanup redirect timeout on unmount.
-  useEffect(() => {
-    return () => {
-      if (redirectTimeoutRef.current) {
-        window.clearTimeout(redirectTimeoutRef.current);
-      }
-    };
-  }, []);
 
   const handleStartInterview = useCallback(
     async (config: InterviewConfig) => {
@@ -459,7 +438,7 @@ const currentGraphIndex = interview.state.currentQuestionIndex;
             {saved && (
               <div className="mb-6 flex items-center justify-center gap-2 text-sm text-emerald-400">
                 <CheckCircle size={16} />
-                Interview saved successfully! Redirecting to interviews...
+                Interview saved successfully!
               </div>
             )}
             {saveError && !saved && (

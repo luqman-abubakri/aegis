@@ -19,6 +19,7 @@ import type {
 } from "@/types";
 
 const API_BASE = "/api/interview";
+const COMPLETED_INTERVIEW_STORAGE_KEY = "aegis_completed_interview";
 
 interface ResumeInterviewQuestion {
   id?: string;
@@ -205,6 +206,29 @@ export function useInterview() {
     interviewIdRef.current =
       interviewId;
   }, [interviewId]);
+
+  useEffect(() => {
+    const stored = window.localStorage.getItem(
+      COMPLETED_INTERVIEW_STORAGE_KEY
+    );
+
+    if (!stored) {
+      return;
+    }
+
+    try {
+      const completedState = JSON.parse(stored) as InterviewState;
+
+      if (
+        completedState.status === "completed" &&
+        completedState.feedback
+      ) {
+        setState(completedState);
+      }
+    } catch {
+      window.localStorage.removeItem(COMPLETED_INTERVIEW_STORAGE_KEY);
+    }
+  }, []);
 
   /*
    * Interview timer
@@ -453,6 +477,10 @@ export function useInterview() {
 
         interviewIdRef.current =
           null;
+
+        window.localStorage.removeItem(
+          COMPLETED_INTERVIEW_STORAGE_KEY
+        );
 
         setState({
           ...initialInterviewState,
@@ -1094,6 +1122,16 @@ export function useInterview() {
             );
           }
 
+          window.localStorage.setItem(
+            COMPLETED_INTERVIEW_STORAGE_KEY,
+            JSON.stringify({
+              ...currentState,
+              status: "completed",
+              currentQuestion: null,
+              feedback,
+            })
+          );
+
           return result.success ===
             true;
         } catch (
@@ -1268,6 +1306,10 @@ export function useInterview() {
 
       interviewIdRef.current =
         null;
+
+      window.localStorage.removeItem(
+        COMPLETED_INTERVIEW_STORAGE_KEY
+      );
 
       setState(
         initialInterviewState
