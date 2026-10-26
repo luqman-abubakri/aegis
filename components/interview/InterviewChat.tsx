@@ -109,7 +109,7 @@ export function InterviewChat({
           <div className="flex items-start justify-end gap-3">
             <div className="max-w-[92%] border border-[#D9D9D4] bg-[#F1F1EE] px-4 py-3 sm:max-w-[80%] sm:px-5">
               <p className="text-sm font-medium text-[#666666]">You</p>
-              <p className="mt-1 whitespace-pre-wrap break-words text-sm leading-relaxed text-white sm:text-[15px]">
+              <p className="mt-1 whitespace-pre-wrap break-words text-sm leading-relaxed text-[#111111] sm:text-[15px]">
                 {evaluation.answer}
               </p>
             </div>
@@ -230,4 +230,3 @@ export function InterviewChat({
     </div>
   );
 }
-

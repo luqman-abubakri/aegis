@@ -126,8 +126,8 @@ export function FeedbackCard({
                   className="flex w-full items-center justify-between p-4 text-left transition-colors hover:bg-[#F1F1EE]"
                 >
                   <div className="flex-1">
-                    <p className="text-sm text-[#888888]">Question {i + 1}</p>
-                    <p className="mt-1 text-sm font-medium text-white line-clamp-2">
+                    <p className="text-sm text-[#111111]">Question {i + 1}</p>
+                    <p className="mt-1 text-sm font-medium text-[#111111] line-clamp-2">
                       {q.question}
                     </p>
                   </div>
@@ -164,10 +164,10 @@ export function FeedbackCard({
                 {expandedQ === i && (
                   <div className="border-t border-[#D9D9D4] p-4">
                     <div className="mb-3">
-                      <p className="mb-1 text-xs font-medium text-[#888888]">
+                      <p className="mb-1 text-xs font-medium text-[#111111]">
                         Your Answer
                       </p>
-                      <p className="text-sm text-[#666666]">{q.answer}</p>
+                      <p className="text-sm text-[#111111]">{q.answer}</p>
                     </div>
 
                     {q.strengths.length > 0 && (
@@ -175,7 +175,7 @@ export function FeedbackCard({
                         <p className="mb-1 text-xs font-medium text-green-400">
                           Strengths
                         </p>
-                        <ul className="list-inside list-disc space-y-0.5 text-sm text-slate-300">
+                        <ul className="list-inside list-disc space-y-0.5 text-sm text-[#111111]">
                           {q.strengths.map((s, si) => (
                             <li key={si}>{s}</li>
                           ))}
@@ -188,7 +188,7 @@ export function FeedbackCard({
                         <p className="mb-1 text-xs font-medium text-amber-400">
                           Improvements
                         </p>
-                        <ul className="list-inside list-disc space-y-0.5 text-sm text-slate-300">
+                        <ul className="list-inside list-disc space-y-0.5 text-sm text-[#111111]">
                           {q.improvementSuggestions.map((s, si) => (
                             <li key={si}>{s}</li>
                           ))}
@@ -201,7 +201,7 @@ export function FeedbackCard({
                         <p className="mb-1 text-xs font-medium text-[#F97316]">
                           Model Answer
                         </p>
-                        <p className="text-sm text-[#666666]">{q.modelAnswer}</p>
+                        <p className="text-sm text-[#111111]">{q.modelAnswer}</p>
                       </div>
                     )}
                   </div>
@@ -214,4 +214,3 @@ export function FeedbackCard({
     </div>
   );
 }
-
