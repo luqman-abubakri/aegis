@@ -73,7 +73,7 @@ export default function ResumePage() {
 
   const resumeCacheKey = user ? `resumes:${user.id}` : "";
   const [resumes, setResumes] = useState<ResumeRecord[]>(
-    () => getCached<ResumeRecord[]>(resumeCacheKey) ?? []
+    () => getCached<ResumeRecord[]>(resumeCacheKey) ?? [],
   );
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
@@ -87,12 +87,11 @@ export default function ResumePage() {
   const [analyzing, setAnalyzing] = useState(false);
 
   const [deleting, setDeleting] = useState(false);
-  const [resumeToDelete, setResumeToDelete] =
-    useState<ResumeRecord | null>(null);
-
-  const [expandedResumeId, setExpandedResumeId] = useState<string | null>(
-    null
+  const [resumeToDelete, setResumeToDelete] = useState<ResumeRecord | null>(
+    null,
   );
+
+  const [expandedResumeId, setExpandedResumeId] = useState<string | null>(null);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const router = useRouter();
@@ -193,7 +192,7 @@ export default function ResumePage() {
         setUploading(false);
         setAnalyzing(true);
         setSuccess(
-          "Resume uploaded successfully. Analyzing your resume now..."
+          "Resume uploaded successfully. Analyzing your resume now...",
         );
         setUploadProgress(100);
         setActiveResumeId(resumeId);
@@ -218,9 +217,7 @@ export default function ResumePage() {
         if (!response.ok) {
           const payload = await response.json().catch(() => null);
 
-          throw new Error(
-            payload?.message ?? "Resume analysis failed."
-          );
+          throw new Error(payload?.message ?? "Resume analysis failed.");
         }
 
         await response.json();
@@ -228,7 +225,7 @@ export default function ResumePage() {
         setAnalysisStatus("Complete");
         setAnalysisProgress(100);
         setSuccess(
-          "Resume analyzed successfully. Your interview has been prepared."
+          "Resume analyzed successfully. Your interview has been prepared.",
         );
 
         /*
@@ -245,9 +242,7 @@ export default function ResumePage() {
         });
 
         const message =
-          err instanceof Error
-            ? err.message
-            : "Failed to upload resume.";
+          err instanceof Error ? err.message : "Failed to upload resume.";
 
         setError(message);
         setAnalysisStatus("Failed");
@@ -260,7 +255,7 @@ export default function ResumePage() {
         }, 1000);
       }
     },
-    [user]
+    [user],
   );
 
   /*
@@ -299,9 +294,7 @@ export default function ResumePage() {
         if (!response.ok) {
           const payload = await response.json().catch(() => null);
 
-          throw new Error(
-            payload?.message ?? "Resume analysis failed."
-          );
+          throw new Error(payload?.message ?? "Resume analysis failed.");
         }
 
         await response.json();
@@ -309,7 +302,7 @@ export default function ResumePage() {
         setAnalysisStatus("Complete");
         setAnalysisProgress(100);
         setSuccess(
-          "Resume analyzed successfully. Your interview has been prepared."
+          "Resume analyzed successfully. Your interview has been prepared.",
         );
 
         /*
@@ -327,9 +320,7 @@ export default function ResumePage() {
         });
 
         const message =
-          err instanceof Error
-            ? err.message
-            : "Failed to analyze resume.";
+          err instanceof Error ? err.message : "Failed to analyze resume.";
 
         setError(message);
         setAnalysisStatus("Failed");
@@ -341,7 +332,7 @@ export default function ResumePage() {
         }, 1000);
       }
     },
-    [user]
+    [user],
   );
 
   /*
@@ -362,7 +353,7 @@ export default function ResumePage() {
         void handleFile(file);
       }
     },
-    [handleFile, uploading, analyzing]
+    [handleFile, uploading, analyzing],
   );
 
   const handleDragOver = useCallback((e: React.DragEvent) => {
@@ -387,7 +378,7 @@ export default function ResumePage() {
         void handleFile(file);
       }
     },
-    [handleFile]
+    [handleFile],
   );
 
   /*
@@ -434,9 +425,7 @@ export default function ResumePage() {
         });
 
         const message =
-          err instanceof Error
-            ? err.message
-            : "Failed to delete resume.";
+          err instanceof Error ? err.message : "Failed to delete resume.";
 
         setError(message);
       } finally {
@@ -444,7 +433,7 @@ export default function ResumePage() {
         setResumeToDelete(null);
       }
     },
-    [user]
+    [user],
   );
 
   /*
@@ -459,27 +448,21 @@ export default function ResumePage() {
       window.localStorage.setItem(
         RESUME_INTERVIEW_STORAGE_KEY,
         JSON.stringify({
-          title:
-            generatedInterview?.title ??
-            "Resume-Based Interview",
-          description:
-            generatedInterview?.description ?? "",
-          questions:
-            generatedInterview?.questions ?? [],
-        })
+          title: generatedInterview?.title ?? "Resume-Based Interview",
+          description: generatedInterview?.description ?? "",
+          questions: generatedInterview?.questions ?? [],
+        }),
       );
 
       const role = encodeURIComponent(
-        analysis?.professionalTitle ||
-          analysis?.careerDomain ||
-          "Candidate"
+        analysis?.professionalTitle || analysis?.careerDomain || "Candidate",
       );
 
       router.push(
-        `/interview/session?role=${role}&difficulty=intermediate&interviewType=technical&mode=text&resumeInterview=1`
+        `/interview/session?role=${role}&difficulty=intermediate&interviewType=technical&mode=text&resumeInterview=1`,
       );
     },
-    [router]
+    [router],
   );
 
   /*
@@ -489,10 +472,7 @@ export default function ResumePage() {
     return (
       <ProtectedRoute>
         <div className="flex min-h-screen items-center justify-center bg-[#FAF9F6]">
-          <LoadingSpinner
-            size="lg"
-            text="Loading resume page..."
-          />
+          <LoadingSpinner size="lg" text="Loading resume page..." />
         </div>
       </ProtectedRoute>
     );
@@ -519,25 +499,18 @@ export default function ResumePage() {
             </div>
 
             <h1 className="text-3xl font-black sm:text-4xl md:text-5xl">
-              Upload Your{" "}
-              <span className="text-[#F97316]">
-                Resume
-              </span>
+              Upload Your <span className="text-[#F97316]">Resume</span>
             </h1>
 
             <p className="mt-4 text-lg text-[#666666]">
-              Upload your PDF resume and we will store it
-              securely for analysis.
+              Upload your PDF resume and we will store it securely for analysis.
             </p>
           </div>
 
           {/* Error */}
           {error && (
             <div className="mb-6 flex items-center gap-3 rounded-xl border border-red-500/30 bg-red-500/10 p-4 text-sm text-red-400">
-              <AlertTriangle
-                size={18}
-                className="flex-shrink-0"
-              />
+              <AlertTriangle size={18} className="flex-shrink-0" />
               <span>{error}</span>
             </div>
           )}
@@ -545,10 +518,7 @@ export default function ResumePage() {
           {/* Success */}
           {success && (
             <div className="mb-6 flex items-center gap-3 rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-4 text-sm text-emerald-400">
-              <CheckCircle
-                size={18}
-                className="flex-shrink-0"
-              />
+              <CheckCircle size={18} className="flex-shrink-0" />
               <span>{success}</span>
             </div>
           )}
@@ -575,14 +545,9 @@ export default function ResumePage() {
 
             {uploading ? (
               <div className="flex flex-col items-center gap-4">
-                <Loader2
-                  size={48}
-                  className="animate-spin text-[#F97316]"
-                />
+                <Loader2 size={48} className="animate-spin text-[#F97316]" />
 
-                <p className="text-lg font-semibold text-white">
-                  Uploading...
-                </p>
+                <p className="text-lg font-semibold text-white">Uploading...</p>
 
                 <div className="h-2 w-full max-w-xs overflow-hidden rounded-full bg-[#D9D9D4]">
                   <div
@@ -593,16 +558,11 @@ export default function ResumePage() {
                   />
                 </div>
 
-                <p className="text-sm text-[#666666]">
-                  {uploadProgress}%
-                </p>
+                <p className="text-sm text-[#666666]">{uploadProgress}%</p>
               </div>
             ) : analyzing ? (
               <div className="flex flex-col items-center gap-4">
-                <Loader2
-                  size={48}
-                  className="animate-spin text-[#F97316]"
-                />
+                <Loader2 size={48} className="animate-spin text-[#F97316]" />
 
                 <p className="text-lg font-semibold text-white">
                   Analyzing Resume...
@@ -617,17 +577,12 @@ export default function ResumePage() {
                   />
                 </div>
 
-                <p className="text-sm text-[#666666]">
-                  {analysisStatus}
-                </p>
+                <p className="text-sm text-[#666666]">{analysisStatus}</p>
               </div>
             ) : (
               <div className="flex flex-col items-center gap-4">
                 <div className="flex h-20 w-20 items-center justify-center text-[#F97316]">
-                  <UploadCloud
-                    size={40}
-                    className="text-[#F97316]"
-                  />
+                  <UploadCloud size={40} className="text-[#F97316]" />
                 </div>
 
                 <div>
@@ -642,18 +597,14 @@ export default function ResumePage() {
 
                 <button
                   type="button"
-                  onClick={() =>
-                    fileInputRef.current?.click()
-                  }
+                  onClick={() => fileInputRef.current?.click()}
                   className="hard-edge mt-2 inline-flex items-center gap-2 bg-[#F97316] px-6 py-3 font-semibold text-white hover:bg-[#EA580C]"
                 >
                   <UploadCloud size={18} />
                   Select PDF File
                 </button>
 
-                <p className="text-xs text-[#888888]">
-                  PDF only · Max 5MB
-                </p>
+                <p className="text-xs text-[#888888]">PDF only · Max 5MB</p>
               </div>
             )}
           </div>
@@ -668,8 +619,8 @@ export default function ResumePage() {
                   </p>
 
                   <p className="text-sm text-[#666666]">
-                    Uploading, extracting text, analyzing,
-                    and generating your interview.
+                    Uploading, extracting text, analyzing, and generating your
+                    interview.
                   </p>
                 </div>
 
@@ -680,7 +631,7 @@ export default function ResumePage() {
 
               <div className="h-2 overflow-hidden rounded-full bg-[#D9D9D4]">
                 <div
-                    className="h-full rounded-full bg-[#F97316] transition-all duration-300"
+                  className="h-full rounded-full bg-[#F97316] transition-all duration-300"
                   style={{
                     width: `${analysisProgress}%`,
                   }}
@@ -720,13 +671,10 @@ export default function ResumePage() {
           <div className="border border-[#D9D9D4] bg-white p-6 hard-card sm:p-8">
             <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div>
-                <h2 className="text-xl font-bold">
-                  Uploaded Resumes
-                </h2>
+                <h2 className="text-xl font-bold">Uploaded Resumes</h2>
 
                 <p className="text-sm text-[#666666]">
-                  Review your resumes and launch a tailored
-                  interview instantly.
+                  Review your resumes and launch a tailored interview instantly.
                 </p>
               </div>
 
@@ -737,10 +685,7 @@ export default function ResumePage() {
 
             {resumes.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-12 text-center">
-                <FileText
-                  size={48}
-                  className="mb-4 text-slate-600"
-                />
+                <FileText size={48} className="mb-4 text-slate-600" />
 
                 <p className="text-lg text-[#666666]">
                   No resumes uploaded yet
@@ -757,14 +702,10 @@ export default function ResumePage() {
 
                   const hasAnalysis = Boolean(analysis);
 
-                  const isExpanded =
-                    expandedResumeId === resume.id;
+                  const isExpanded = expandedResumeId === resume.id;
 
                   return (
-                    <div
-                      key={resume.id}
-                      className="space-y-2"
-                    >
+                    <div key={resume.id} className="space-y-2">
                       {/* Resume Card */}
                       <div className="flex flex-col gap-4 border border-[#D9D9D4] bg-[#F1F1EE] p-4 sm:flex-row sm:items-center sm:justify-between">
                         <div className="flex min-w-0 items-start gap-4">
@@ -774,29 +715,22 @@ export default function ResumePage() {
 
                           <div className="min-w-0 flex-1">
                             <p className="break-words font-semibold text-[#111111]">
-                              {resume.fileName ||
-                                "Untitled"}
+                              {resume.fileName || "Untitled"}
                             </p>
 
                             <div className="mt-1 flex flex-wrap items-center gap-3 text-xs text-slate-400">
                               {resume.fileSize && (
-                                <span>
-                                  {formatBytes(
-                                    resume.fileSize
-                                  )}
-                                </span>
+                                <span>{formatBytes(resume.fileSize)}</span>
                               )}
 
                               <span>
-                                {new Date(
-                                  resume.uploadedAt
-                                ).toLocaleDateString(
+                                {new Date(resume.uploadedAt).toLocaleDateString(
                                   undefined,
                                   {
                                     year: "numeric",
                                     month: "short",
                                     day: "numeric",
-                                  }
+                                  },
                                 )}
                               </span>
                             </div>
@@ -804,23 +738,18 @@ export default function ResumePage() {
                             {hasAnalysis && (
                               <div className="mt-3 flex flex-wrap gap-2 text-xs">
                                 <span className="rounded-full border border-emerald-500/20 bg-emerald-500/10 px-2.5 py-1 text-emerald-300">
-                                  Score{" "}
-                                  {analysis?.overallScore ??
-                                    0}
+                                  Score {analysis?.overallScore ?? 0}
                                 </span>
 
                                 <span className="rounded-full border border-cyan-500/20 bg-cyan-500/10 px-2.5 py-1 text-cyan-300">
-                                  ATS{" "}
-                                  {analysis?.atsScore ?? 0}
+                                  ATS {analysis?.atsScore ?? 0}
                                 </span>
 
-                                {analysis?.generatedInterview
-                                  ?.questions?.length ? (
+                                {analysis?.generatedInterview?.questions
+                                  ?.length ? (
                                   <span className="rounded-full border border-orange-200 bg-orange-50 px-2.5 py-1 text-[#F97316]">
                                     {
-                                      analysis
-                                        .generatedInterview
-                                        .questions
+                                      analysis.generatedInterview.questions
                                         .length
                                     }{" "}
                                     questions ready
@@ -836,16 +765,8 @@ export default function ResumePage() {
                           {hasAnalysis ? (
                             <button
                               type="button"
-                              onClick={() =>
-                                goToResumeInterview(
-                                  resume
-                                )
-                              }
-                              disabled={
-                                analyzing ||
-                                deleting ||
-                                uploading
-                              }
+                              onClick={() => goToResumeInterview(resume)}
+                              disabled={analyzing || deleting || uploading}
                               className="hard-edge inline-flex w-full items-center justify-center gap-2 border border-orange-200 bg-orange-50 px-4 py-2 text-sm font-semibold text-[#F97316] transition-all hover:bg-orange-100 disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"
                             >
                               <PlayCircle size={16} />
@@ -854,26 +775,13 @@ export default function ResumePage() {
                           ) : (
                             <button
                               type="button"
-                              onClick={() =>
-                                void handleAnalyze(
-                                  resume
-                                )
-                              }
-                              disabled={
-                                analyzing ||
-                                deleting ||
-                                uploading
-                              }
+                              onClick={() => void handleAnalyze(resume)}
+                              disabled={analyzing || deleting || uploading}
                               className="hard-edge inline-flex w-full items-center justify-center gap-2 border border-orange-200 bg-orange-50 px-4 py-2 text-sm font-semibold text-[#F97316] transition-all hover:bg-orange-100 disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"
                             >
-                              {analyzing &&
-                              activeResumeId ===
-                                resume.id ? (
+                              {analyzing && activeResumeId === resume.id ? (
                                 <>
-                                  <Loader2
-                                    size={16}
-                                    className="animate-spin"
-                                  />
+                                  <Loader2 size={16} className="animate-spin" />
                                   Analyzing...
                                 </>
                               ) : (
@@ -887,14 +795,8 @@ export default function ResumePage() {
 
                           <button
                             type="button"
-                            onClick={() =>
-                              setResumeToDelete(resume)
-                            }
-                            disabled={
-                              analyzing ||
-                              deleting ||
-                              uploading
-                            }
+                            onClick={() => setResumeToDelete(resume)}
+                            disabled={analyzing || deleting || uploading}
                             className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-2 text-sm font-semibold text-red-400 transition-all duration-300 hover:bg-red-500/20 disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"
                           >
                             <Trash2 size={16} />
@@ -906,9 +808,7 @@ export default function ResumePage() {
                               type="button"
                               onClick={() =>
                                 setExpandedResumeId(
-                                  isExpanded
-                                    ? null
-                                    : resume.id
+                                  isExpanded ? null : resume.id,
                                 )
                               }
                               className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-slate-700 bg-slate-800/50 px-4 py-2 text-sm font-semibold text-slate-300 transition-all duration-300 hover:bg-slate-700/50 sm:w-auto"
@@ -931,299 +831,280 @@ export default function ResumePage() {
 
                       {/* Expanded Analysis */}
                       {hasAnalysis && isExpanded && (
-                                    <div className="mt-2 border border-[#D9D9D4] bg-[#F1F1EE] p-6 text-sm text-[#111111] shadow-inner">
-                          {/* Profile + Skills */}
-                          <div className="grid gap-6 md:grid-cols-2">
-                            <div>
-                              <h3 className="mb-2 text-lg font-bold text-[#F97316]">
-                                Profile
-                              </h3>
+                        <div className="mt-3 border-2 border-black bg-white text-sm text-black shadow-[6px_6px_0_0_#000]">
+                          {/* Header: who the candidate is */}
+                          <div className="border-b-4 border-[#F97316] bg-black px-6 py-5 text-white">
+                            <h3 className="text-xl font-bold">
+                              {analysis?.candidateName || "N/A"}
+                            </h3>
+                            <p className="mt-1 text-white/70">
+                              {analysis?.professionalTitle || "N/A"}
+                            </p>
+                          </div>
 
-                              <p>
-                                <strong>Name:</strong>{" "}
-                                {analysis?.candidateName ||
-                                  "N/A"}
-                              </p>
+                          {/* Key facts */}
+                          <dl className="grid grid-cols-2 divide-x-2 divide-black border-b-2 border-black">
+                            <div className="px-6 py-4">
+                              <dt className="text-xs text-black/50">Domain</dt>
+                              <dd className="mt-0.5 font-semibold">
+                                {analysis?.careerDomain || "N/A"}
+                              </dd>
+                            </div>
+                            <div className="px-6 py-4">
+                              <dt className="text-xs text-black/50">Level</dt>
+                              <dd className="mt-0.5 font-semibold">
+                                {analysis?.careerLevel || "N/A"}
+                              </dd>
+                            </div>
+                          </dl>
 
-                              <p>
-                                <strong>Title:</strong>{" "}
-                                {analysis?.professionalTitle ||
-                                  "N/A"}
-                              </p>
-
-                              <p>
-                                <strong>Domain:</strong>{" "}
-                                {analysis?.careerDomain ||
-                                  "N/A"}
-                              </p>
-
-                              <p>
-                                <strong>Level:</strong>{" "}
-                                {analysis?.careerLevel ||
-                                  "N/A"}
-                              </p>
-
-                              {analysis?.summary && (
-                                <p className="mt-2 text-slate-400">
+                          <div className="space-y-8 p-6">
+                            {/* Summary */}
+                            {analysis?.summary && (
+                              <section>
+                                <h4 className="mb-2 border-l-8 border-[#F97316] pl-3 text-base font-bold">
+                                  Summary
+                                </h4>
+                                <p className="max-w-prose leading-relaxed text-black/70">
                                   {analysis.summary}
                                 </p>
-                              )}
-                            </div>
+                              </section>
+                            )}
 
-                            <div>
-                              <h3 className="mb-2 text-lg font-bold text-emerald-300">
+                            {/* Skills */}
+                            <section>
+                              <h4 className="mb-3 border-l-8 border-[#F97316] pl-3 text-base font-bold">
                                 Skills
-                              </h3>
+                              </h4>
 
-                              <div className="mb-2 flex flex-wrap gap-2">
-                                {analysis?.technicalSkills?.map(
-                                  (skill, idx) => (
-                                    <span
-                                      key={`technical-${idx}`}
-                                      className="rounded border border-emerald-500/20 bg-emerald-500/10 px-2 py-1 text-xs"
-                                    >
-                                      {skill}
-                                    </span>
-                                  )
-                                )}
-
-                                {analysis?.softSkills?.map(
-                                  (skill, idx) => (
-                                    <span
-                                      key={`soft-${idx}`}
-                                      className="rounded border border-cyan-500/20 bg-cyan-500/10 px-2 py-1 text-xs"
-                                    >
-                                      {skill}
-                                    </span>
-                                  )
-                                )}
-                              </div>
-
-                              {analysis?.missingSkills &&
-                                analysis.missingSkills
-                                  .length > 0 && (
-                                  <>
-                                    <h4 className="mb-1 mt-4 text-xs font-semibold text-red-300">
-                                      Missing Skills
-                                    </h4>
-
-                                    <div className="flex flex-wrap gap-2">
-                                      {analysis.missingSkills.map(
-                                        (
-                                          skill,
-                                          idx
-                                        ) => (
-                                          <span
-                                            key={`missing-${idx}`}
-                                            className="rounded border border-red-500/20 bg-red-500/10 px-2 py-1 text-xs text-red-300"
-                                          >
-                                            {skill}
-                                          </span>
-                                        )
-                                      )}
+                              <div className="space-y-4">
+                                {analysis?.technicalSkills &&
+                                  analysis.technicalSkills.length > 0 && (
+                                    <div>
+                                      <p className="mb-2 text-xs font-semibold text-black/50">
+                                        Technical
+                                      </p>
+                                      <div className="flex flex-wrap gap-2">
+                                        {analysis.technicalSkills.map(
+                                          (skill, idx) => (
+                                            <span
+                                              key={`technical-${idx}`}
+                                              className="border-2 border-black bg-black px-2.5 py-1 text-xs font-bold text-white"
+                                            >
+                                              {skill}
+                                            </span>
+                                          ),
+                                        )}
+                                      </div>
                                     </div>
-                                  </>
-                                )}
-                            </div>
-                          </div>
+                                  )}
 
-                          {/* Strengths + Weaknesses */}
-                          <div className="mt-6 grid gap-6 md:grid-cols-2">
-                            {analysis?.strengths &&
-                              analysis.strengths.length >
-                                0 && (
-                                <div>
-                                  <h3 className="mb-2 text-lg font-bold text-blue-300">
-                                    Strengths
-                                  </h3>
-
-                                  <ul className="list-inside list-disc space-y-1 text-slate-400">
-                                    {analysis.strengths.map(
-                                      (str, idx) => (
-                                        <li key={idx}>
-                                          {str}
-                                        </li>
-                                      )
-                                    )}
-                                  </ul>
-                                </div>
-                              )}
-
-                            {analysis?.weaknesses &&
-                              analysis.weaknesses.length >
-                                0 && (
-                                <div>
-                                  <h3 className="mb-2 text-lg font-bold text-amber-300">
-                                    Weaknesses
-                                  </h3>
-
-                                  <ul className="list-inside list-disc space-y-1 text-slate-400">
-                                    {analysis.weaknesses.map(
-                                      (wk, idx) => (
-                                        <li key={idx}>
-                                          {wk}
-                                        </li>
-                                      )
-                                    )}
-                                  </ul>
-                                </div>
-                              )}
-                          </div>
-
-                          {/* Experience */}
-                          {analysis?.experience &&
-                            analysis.experience.length >
-                              0 && (
-                              <div className="mt-6">
-                                <h3 className="mb-3 text-lg font-bold text-indigo-300">
-                                  Experience
-                                </h3>
-
-                                <div className="space-y-4">
-                                  {analysis.experience.map(
-                                    (
-                                      exp: any,
-                                      idx: number
-                                    ) => (
-                                      <div
-                                        key={idx}
-                                        className="border-l-2 border-slate-700 pl-4"
-                                      >
-                                        <p className="font-semibold text-white">
-                                          {
-                                            exp.role
-                                          }{" "}
-                                          <span className="font-normal text-slate-400">
-                                            at{" "}
-                                            {
-                                              exp.organization
-                                            }
-                                          </span>
-                                        </p>
-
-                                        <p className="text-xs text-slate-500">
-                                          {exp.dates}
-                                        </p>
-
-                                        {exp.description && (
-                                          <p className="mt-1 text-slate-400">
-                                            {
-                                              exp.description
-                                            }
-                                          </p>
+                                {analysis?.softSkills &&
+                                  analysis.softSkills.length > 0 && (
+                                    <div>
+                                      <p className="mb-2 text-xs font-semibold text-black/50">
+                                        Soft
+                                      </p>
+                                      <div className="flex flex-wrap gap-2">
+                                        {analysis.softSkills.map(
+                                          (skill, idx) => (
+                                            <span
+                                              key={`soft-${idx}`}
+                                              className="border-2 border-black bg-white px-2.5 py-1 text-xs font-bold shadow-[2px_2px_0_0_#000]"
+                                            >
+                                              {skill}
+                                            </span>
+                                          ),
                                         )}
                                       </div>
-                                    )
+                                    </div>
                                   )}
-                                </div>
+
+                                {analysis?.missingSkills &&
+                                  analysis.missingSkills.length > 0 && (
+                                    <div>
+                                      <p className="mb-2 text-xs font-semibold text-[#F97316]">
+                                        Missing
+                                      </p>
+                                      <div className="flex flex-wrap gap-2">
+                                        {analysis.missingSkills.map(
+                                          (skill, idx) => (
+                                            <span
+                                              key={`missing-${idx}`}
+                                              className="border-2 border-black bg-[#F97316] px-2.5 py-1 text-xs font-bold text-black"
+                                            >
+                                              {skill}
+                                            </span>
+                                          ),
+                                        )}
+                                      </div>
+                                    </div>
+                                  )}
+                              </div>
+                            </section>
+
+                            {/* Strengths + Weaknesses */}
+                            {((analysis?.strengths &&
+                              analysis.strengths.length > 0) ||
+                              (analysis?.weaknesses &&
+                                analysis.weaknesses.length > 0)) && (
+                              <div className="grid gap-8 md:grid-cols-2">
+                                {analysis?.strengths &&
+                                  analysis.strengths.length > 0 && (
+                                    <section>
+                                      <h4 className="mb-3 border-l-8 border-[#F97316] pl-3 text-base font-bold">
+                                        Strengths
+                                      </h4>
+                                      <ul className="space-y-2">
+                                        {analysis.strengths.map((str, idx) => (
+                                          <li
+                                            key={idx}
+                                            className="flex gap-3 text-black/80"
+                                          >
+                                            <span className="mt-1.5 h-3 w-3 shrink-0 border-2 border-black bg-[#F97316]" />
+                                            <span>{str}</span>
+                                          </li>
+                                        ))}
+                                      </ul>
+                                    </section>
+                                  )}
+
+                                {analysis?.weaknesses &&
+                                  analysis.weaknesses.length > 0 && (
+                                    <section>
+                                      <h4 className="mb-3 border-l-8 border-black pl-3 text-base font-bold">
+                                        Weaknesses
+                                      </h4>
+                                      <ul className="space-y-2">
+                                        {analysis.weaknesses.map((wk, idx) => (
+                                          <li
+                                            key={idx}
+                                            className="flex gap-3 text-black/80"
+                                          >
+                                            <span className="mt-1.5 h-3 w-3 shrink-0 border-2 border-black bg-white" />
+                                            <span>{wk}</span>
+                                          </li>
+                                        ))}
+                                      </ul>
+                                    </section>
+                                  )}
                               </div>
                             )}
 
-                          {/* Education */}
-                          {analysis?.education &&
-                            analysis.education.length >
-                              0 && (
-                              <div className="mt-6">
-                                <h3 className="mb-3 text-lg font-bold text-[#F97316]">
-                                  Education
-                                </h3>
-
-                                <div className="space-y-4">
-                                  {analysis.education.map(
-                                    (
-                                      edu: any,
-                                      idx: number
-                                    ) => (
-                                      <div
-                                        key={idx}
-                                        className="border-l-2 border-slate-700 pl-4"
-                                      >
-                                        <p className="font-semibold text-white">
-                                          {
-                                            edu.degree
-                                          }
-                                        </p>
-
-                                        <p className="text-xs text-slate-400">
-                                          {
-                                            edu.institution
-                                          }{" "}
-                                          •{" "}
-                                          {
-                                            edu.dates
-                                          }
-                                        </p>
-                                      </div>
-                                    )
-                                  )}
-                                </div>
-                              </div>
-                            )}
-
-                          {/* Projects */}
-                          {analysis?.projects &&
-                            analysis.projects.length >
-                              0 && (
-                              <div className="mt-6">
-                                <h3 className="mb-3 text-lg font-bold text-cyan-300">
-                                  Projects
-                                </h3>
-
-                                <div className="grid gap-4 md:grid-cols-2">
-                                  {analysis.projects.map(
-                                    (
-                                      proj: any,
-                                      idx: number
-                                    ) => (
-                                      <div
-                                        key={idx}
-                                        className="rounded-lg border border-slate-800 bg-slate-800/30 p-3"
-                                      >
-                                        <p className="font-semibold text-white">
-                                          {
-                                            proj.name
-                                          }
-                                        </p>
-
-                                        {proj.description && (
-                                          <p className="mt-1 text-xs text-slate-400">
-                                            {
-                                              proj.description
-                                            }
+                            {/* Experience */}
+                            {analysis?.experience &&
+                              analysis.experience.length > 0 && (
+                                <section>
+                                  <h4 className="mb-4 border-l-8 border-[#F97316] pl-3 text-base font-bold">
+                                    Experience
+                                  </h4>
+                                  <ol className="ml-1 border-l-2 border-black">
+                                    {analysis.experience.map(
+                                      (exp: any, idx: number) => (
+                                        <li
+                                          key={idx}
+                                          className="relative pb-5 pl-6 last:pb-0"
+                                        >
+                                          <span className="absolute -left-[7px] top-1.5 h-3 w-3 border-2 border-black bg-[#F97316]" />
+                                          <p className="font-semibold">
+                                            {exp.role}
                                           </p>
-                                        )}
-
-                                        {proj.technologies &&
-                                          proj
-                                            .technologies
-                                            .length >
-                                            0 && (
-                                            <div className="mt-2 flex flex-wrap gap-1">
-                                              {proj.technologies.map(
-                                                (
-                                                  tech: string,
-                                                  i: number
-                                                ) => (
-                                                  <span
-                                                    key={
-                                                      i
-                                                    }
-                                                    className="rounded bg-slate-700 px-1.5 py-0.5 text-[10px]"
-                                                  >
-                                                    {
-                                                      tech
-                                                    }
-                                                  </span>
-                                                )
-                                              )}
-                                            </div>
+                                          <p className="text-black/70">
+                                            {exp.organization}
+                                          </p>
+                                          <p className="mt-0.5 text-xs text-black/50">
+                                            {exp.dates}
+                                          </p>
+                                          {exp.description && (
+                                            <p className="mt-2 max-w-prose text-black/70">
+                                              {exp.description}
+                                            </p>
                                           )}
-                                      </div>
-                                    )
-                                  )}
-                                </div>
-                              </div>
-                            )}
+                                        </li>
+                                      ),
+                                    )}
+                                  </ol>
+                                </section>
+                              )}
+
+                            {/* Education */}
+                            {analysis?.education &&
+                              analysis.education.length > 0 && (
+                                <section>
+                                  <h4 className="mb-4 border-l-8 border-[#F97316] pl-3 text-base font-bold">
+                                    Education
+                                  </h4>
+                                  <ul className="divide-y-2 divide-black border-y-2 border-black">
+                                    {analysis.education.map(
+                                      (edu: any, idx: number) => (
+                                        <li
+                                          key={idx}
+                                          className="flex flex-wrap items-baseline justify-between gap-x-4 py-3"
+                                        >
+                                          <div>
+                                            <p className="font-semibold">
+                                              {edu.degree}
+                                            </p>
+                                            <p className="text-black/70">
+                                              {edu.institution}
+                                            </p>
+                                          </div>
+                                          <p className="text-xs text-black/50">
+                                            {edu.dates}
+                                          </p>
+                                        </li>
+                                      ),
+                                    )}
+                                  </ul>
+                                </section>
+                              )}
+
+                            {/* Projects */}
+                            {analysis?.projects &&
+                              analysis.projects.length > 0 && (
+                                <section>
+                                  <h4 className="mb-4 border-l-8 border-[#F97316] pl-3 text-base font-bold">
+                                    Projects
+                                  </h4>
+                                  <div className="grid gap-4 md:grid-cols-2">
+                                    {analysis.projects.map(
+                                      (proj: any, idx: number) => (
+                                        <div
+                                          key={idx}
+                                          className="border-2 border-black bg-white p-4 shadow-[4px_4px_0_0_#F97316]"
+                                        >
+                                          <p className="font-semibold">
+                                            {proj.name}
+                                          </p>
+
+                                          {proj.description && (
+                                            <p className="mt-1 text-xs leading-relaxed text-black/70">
+                                              {proj.description}
+                                            </p>
+                                          )}
+
+                                          {proj.technologies &&
+                                            proj.technologies.length > 0 && (
+                                              <div className="mt-3 flex flex-wrap gap-1.5">
+                                                {proj.technologies.map(
+                                                  (tech: string, i: number) => (
+                                                    <span
+                                                      key={i}
+                                                      className="border border-black bg-black px-1.5 py-0.5 text-[11px] font-bold text-white"
+                                                    >
+                                                      {tech}
+                                                    </span>
+                                                  ),
+                                                )}
+                                              </div>
+                                            )}
+                                        </div>
+                                      ),
+                                    )}
+                                  </div>
+                                </section>
+                              )}
+                          </div>
                         </div>
                       )}
                     </div>
