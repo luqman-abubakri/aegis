@@ -1,46 +1,17 @@
 import { NextResponse } from "next/server";
-import { jwtVerify } from "jose";
 import { dbConnect } from "@/lib/dbConnect";
 import User from "@/lib/models/User";
-
-const JWT_SECRET = process.env.JWT_SECRET;
-
-if (!JWT_SECRET) {
-  throw new Error("Missing environment variable: JWT_SECRET");
-}
-
-const secret = new TextEncoder().encode(JWT_SECRET);
+import { getCurrentUserId } from "@/lib/currentUser";
 
 export async function GET() {
   try {
-    // Get the session cookie
-    const cookieStore = await import("next/headers").then((mod) =>
-      mod.cookies()
-    );
-
-    const token = (await cookieStore).get("aegis_session")?.value;
-
-    // No session
-    if (!token) {
-      return NextResponse.json(
-        {
-          success: false,
-          message: "Not authenticated",
-        },
-        { status: 401 }
-      );
-    }
-
-    // Verify JWT
-    const { payload } = await jwtVerify(token, secret);
-
-    const userId = payload.userId as string;
+    const userId = await getCurrentUserId();
 
     if (!userId) {
       return NextResponse.json(
         {
           success: false,
-          message: "Invalid session",
+          message: "Not authenticated",
         },
         { status: 401 }
       );

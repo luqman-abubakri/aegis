@@ -11,6 +11,7 @@ import {
 } from "react";
 import { useRouter } from "next/navigation";
 import { clearClientCache } from "@/lib/clientCache";
+import { clearAuthSessions } from "@/app/actions/auth";
 
 export interface AuthUser {
   id: string;
@@ -104,24 +105,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   /**
-   * Log the user out by clearing the
-   * MongoDB/JWT session cookie.
+   * Log the user out by clearing both session cookies.
    */
   const logout = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
 
-      const response = await fetch("/api/auth/logout", {
-        method: "POST",
-        credentials: "include",
-      });
-
-      const data = await response.json();
-
-      if (!response.ok || !data.success) {
-        throw new Error(data.message || "Logout failed");
-      }
+      await clearAuthSessions();
 
       setUser(null);
       clearClientCache();

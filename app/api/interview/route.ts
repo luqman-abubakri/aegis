@@ -1,6 +1,4 @@
 import { NextResponse } from "next/server";
-import { cookies } from "next/headers";
-import { jwtVerify } from "jose";
 
 import {
   evaluateAnswer,
@@ -9,6 +7,7 @@ import {
 } from "@/lib/grok";
 
 import { dbConnect } from "@/lib/dbConnect";
+import { getCurrentUserId } from "@/lib/currentUser";
 
 import User from "@/lib/models/User";
 import Interview from "@/lib/models/Interview";
@@ -45,20 +44,6 @@ const difficulties: Difficulty[] = [
   "intermediate",
   "advanced",
 ];
-
-const JWT_SECRET =
-  process.env.JWT_SECRET;
-
-if (!JWT_SECRET) {
-  throw new Error(
-    "Missing environment variable: JWT_SECRET"
-  );
-}
-
-const jwtSecret =
-  new TextEncoder().encode(
-    JWT_SECRET
-  );
 
 /*
  * ========================================
@@ -437,56 +422,6 @@ function getPositiveInt(
 
 /*
  * ========================================
- * JWT AUTHENTICATION
- * ========================================
- *
- * The session is stored in:
- *
- * aegis_session
- *
- */
-async function getAuthenticatedUserId(): Promise<
-  string | null
-> {
-  const cookieStore =
-    await cookies();
-
-  const token =
-    cookieStore.get(
-      "aegis_session"
-    )?.value;
-
-  if (!token) {
-    return null;
-  }
-
-  try {
-    const { payload } =
-      await jwtVerify(
-        token,
-        jwtSecret
-      );
-
-    if (
-      typeof payload.userId !==
-      "string"
-    ) {
-      return null;
-    }
-
-    return payload.userId;
-  } catch (error) {
-    console.error(
-      "[Interview API] JWT verification failed:",
-      error
-    );
-
-    return null;
-  }
-}
-
-/*
- * ========================================
  * ERROR HELPERS
  * ========================================
  */
@@ -752,7 +687,7 @@ async function handleSave(
    * 1. Authenticate through JWT.
    */
   const userId =
-    await getAuthenticatedUserId();
+    await getCurrentUserId();
 
   if (!userId) {
     return jsonError(
@@ -1083,7 +1018,7 @@ async function handleSaveAnswer(
    * Authenticate through JWT.
    */
   const userId =
-    await getAuthenticatedUserId();
+    await getCurrentUserId();
 
   if (!userId) {
     return jsonError(

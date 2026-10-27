@@ -1,6 +1,4 @@
 import { NextResponse } from "next/server";
-import { cookies } from "next/headers";
-import { jwtVerify } from "jose";
 import type { UploadApiResponse } from "cloudinary";
 import { dbConnect } from "@/lib/dbConnect";
 import ResumeUpload from "@/lib/models/ResumeUpload";
@@ -10,16 +8,9 @@ import {
   generateResumeInterviewQuestions,
 } from "@/lib/grok";
 import pdfParse from "pdf-parse";
+import { getCurrentUserId } from "@/lib/currentUser";
 
 export const runtime = "nodejs";
-
-const JWT_SECRET = process.env.JWT_SECRET;
-
-if (!JWT_SECRET) {
-  throw new Error("Missing environment variable: JWT_SECRET");
-}
-
-const secret = new TextEncoder().encode(JWT_SECRET);
 
 class ResumeProcessingError extends Error {
   constructor(
@@ -29,33 +20,6 @@ class ResumeProcessingError extends Error {
   ) {
     super(message);
     this.name = "ResumeProcessingError";
-  }
-}
-
-/**
- * Get the authenticated user's ID from the aegis_session cookie.
- */
-async function getAuthenticatedUserId() {
-  const cookieStore = await cookies();
-  const token = cookieStore.get("aegis_session")?.value;
-
-  if (!token) {
-    return null;
-  }
-
-  try {
-    const { payload } = await jwtVerify(token, secret);
-
-    const userId = payload.userId as string;
-
-    if (!userId) {
-      return null;
-    }
-
-    return userId;
-  } catch (error) {
-    console.error("JWT verification failed:", error);
-    return null;
   }
 }
 
@@ -115,7 +79,7 @@ async function extractPdfText(buffer: Buffer) {
  */
 export async function POST(request: Request) {
   try {
-    const userId = await getAuthenticatedUserId();
+    const userId = await getCurrentUserId();
 
     if (!userId) {
       return NextResponse.json(
@@ -557,7 +521,7 @@ export async function POST(request: Request) {
  */
 export async function GET() {
   try {
-    const userId = await getAuthenticatedUserId();
+    const userId = await getCurrentUserId();
 
     if (!userId) {
       return NextResponse.json(

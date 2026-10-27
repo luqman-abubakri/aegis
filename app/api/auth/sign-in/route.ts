@@ -52,6 +52,16 @@ export async function POST(request: Request) {
       );
     }
 
+    if (!user.password) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: "This account uses Google sign-in",
+        },
+        { status: 401 }
+      );
+    }
+
     // Compare password with stored bcrypt hash
     const passwordIsValid = await bcrypt.compare(
       String(password),

@@ -10,10 +10,12 @@ import {
   EyeOff,
 } from "lucide-react";
 import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { signIn } from "@/services/auth";
 import { LoadingSpinner } from "@/components/LoadingSpinner";
 import { useAuth } from "@/contexts/AuthProvider";
+import { GoogleButton } from "@/components/GoogleButton";
+import { AuthDivider } from "@/components/AuthDivider";
 
 export default function SignInPage() {
   const [showPassword, setShowPassword] = useState(false);
@@ -23,7 +25,15 @@ export default function SignInPage() {
   const [loading, setLoading] = useState(false);
 
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { setAuthenticatedUser } = useAuth();
+
+  const authError = searchParams.get("error");
+  const authErrorMessage = authError
+    ? authError === "AccessDenied"
+      ? "Google sign-in was cancelled or denied. Please try again."
+      : "Google sign-in failed. Please try again or use your email and password."
+    : "";
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -98,15 +108,18 @@ export default function SignInPage() {
         </div>
 
         {/* Error Message */}
-        {formError && (
+        {(formError || authErrorMessage) && (
           <motion.div
             initial={{ opacity: 0, y: -10 }}
             animate={{ opacity: 1, y: 0 }}
             className="mb-6 border border-red-200 bg-red-50 px-5 py-3 text-sm text-red-600"
           >
-            {formError}
+            {formError || authErrorMessage}
           </motion.div>
         )}
+
+        <GoogleButton />
+        <AuthDivider />
 
         {/* Form */}
         <form onSubmit={handleSubmit} className="space-y-6">
@@ -195,13 +208,6 @@ export default function SignInPage() {
             )}
           </button>
         </form>
-
-        {/* Divider */}
-        <div className="my-8 flex items-center gap-4">
-          <div className="h-px flex-1 bg-[#D9D9D4]" />
-          <span className="text-sm text-[#888888]">OR</span>
-          <div className="h-px flex-1 bg-[#D9D9D4]" />
-        </div>
 
         {/* Footer */}
         <div className="mt-8 text-center text-sm text-[#666666]">

@@ -1,46 +1,6 @@
 import { NextResponse } from "next/server";
-import { cookies } from "next/headers";
-import { jwtVerify } from "jose";
 import cloudinary from "@/lib/cloudinary";
-
-const JWT_SECRET = process.env.JWT_SECRET;
-
-if (!JWT_SECRET) {
-  throw new Error("Missing environment variable: JWT_SECRET");
-}
-
-const secret = new TextEncoder().encode(JWT_SECRET);
-
-/**
- * Get authenticated user ID
- */
-async function getAuthenticatedUserId() {
-  const cookieStore = await cookies();
-
-  const token =
-    cookieStore.get("aegis_session")?.value;
-
-  if (!token) {
-    return null;
-  }
-
-  try {
-    const { payload } = await jwtVerify(
-      token,
-      secret
-    );
-
-    if (
-      typeof payload.userId !== "string"
-    ) {
-      return null;
-    }
-
-    return payload.userId;
-  } catch {
-    return null;
-  }
-}
+import { getCurrentUserId } from "@/lib/currentUser";
 
 /**
  * POST /api/profile/avatar
@@ -54,8 +14,7 @@ export async function POST(
     /**
      * 1. Authenticate
      */
-    const userId =
-      await getAuthenticatedUserId();
+    const userId = await getCurrentUserId();
 
     if (!userId) {
       return NextResponse.json(

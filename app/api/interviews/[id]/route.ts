@@ -1,47 +1,19 @@
 import { NextResponse } from "next/server";
-import { cookies } from "next/headers";
-import { jwtVerify } from "jose";
 import mongoose from "mongoose";
 
 import { dbConnect } from "@/lib/dbConnect";
 import Interview from "@/lib/models/Interview";
 import Feedback from "@/lib/models/Feedback";
+import { getCurrentUserId } from "@/lib/currentUser";
 
 export const runtime = "nodejs";
-
-const JWT_SECRET = process.env.JWT_SECRET;
-
-if (!JWT_SECRET) {
-  throw new Error("Missing environment variable: JWT_SECRET");
-}
-
-const secret = new TextEncoder().encode(JWT_SECRET);
-
-async function getAuthenticatedUserId(): Promise<string | null> {
-  const token = (await cookies()).get("aegis_session")?.value;
-
-  if (!token) {
-    return null;
-  }
-
-  try {
-    const { payload } = await jwtVerify(token, secret);
-
-    return typeof payload.userId === "string"
-      ? payload.userId
-      : null;
-  } catch (error) {
-    console.error("[Interview Delete API] JWT verification failed:", error);
-    return null;
-  }
-}
 
 export async function DELETE(
   _request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const userId = await getAuthenticatedUserId();
+    const userId = await getCurrentUserId();
 
     if (!userId) {
       return NextResponse.json(

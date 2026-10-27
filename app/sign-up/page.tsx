@@ -17,6 +17,8 @@ import { useRouter } from "next/navigation";
 import { signUp } from "@/services/auth";
 import { LoadingSpinner } from "@/components/LoadingSpinner";
 import { useAuth } from "@/contexts/AuthProvider";
+import { GoogleButton } from "@/components/GoogleButton";
+import { AuthDivider } from "@/components/AuthDivider";
 
 export default function SignUpPage() {
   const [showPassword, setShowPassword] = useState(false);
@@ -123,6 +125,9 @@ export default function SignUpPage() {
             {formError}
           </motion.div>
         )}
+
+        <GoogleButton />
+        <AuthDivider />
 
         {/* Form */}
         <form onSubmit={handleSubmit} className="space-y-6">

@@ -1,42 +1,9 @@
 import { NextResponse } from "next/server";
-import { cookies } from "next/headers";
-import { jwtVerify } from "jose";
 import { dbConnect } from "@/lib/dbConnect";
 import User from "@/lib/models/User";
 import Interview from "@/lib/models/Interview";
 import Feedback from "@/lib/models/Feedback";
-
-const JWT_SECRET = process.env.JWT_SECRET;
-
-if (!JWT_SECRET) {
-  throw new Error("Missing environment variable: JWT_SECRET");
-}
-
-const secret = new TextEncoder().encode(JWT_SECRET);
-
-/**
- * Get authenticated user ID from JWT session cookie
- */
-async function getAuthenticatedUserId() {
-  const cookieStore = await cookies();
-  const token = cookieStore.get("aegis_session")?.value;
-
-  if (!token) {
-    return null;
-  }
-
-  try {
-    const { payload } = await jwtVerify(token, secret);
-
-    if (typeof payload.userId !== "string") {
-      return null;
-    }
-
-    return payload.userId;
-  } catch {
-    return null;
-  }
-}
+import { getCurrentUserId } from "@/lib/currentUser";
 
 /**
  * GET /api/profile
@@ -48,7 +15,7 @@ async function getAuthenticatedUserId() {
  */
 export async function GET() {
   try {
-    const userId = await getAuthenticatedUserId();
+    const userId = await getCurrentUserId();
 
     if (!userId) {
       return NextResponse.json(
@@ -152,7 +119,7 @@ export async function PATCH(request: Request) {
     /**
      * 1. Authenticate user
      */
-    const userId = await getAuthenticatedUserId();
+    const userId = await getCurrentUserId();
 
     if (!userId) {
       return NextResponse.json(
